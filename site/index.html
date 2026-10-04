@@ -157,6 +157,35 @@ tr.none td { color: var(--muted); }
 .badge.doubt { border-color: var(--warn); color: var(--warn); }
 .badge.q { border-color: color-mix(in srgb, var(--soft) 60%, transparent); background: color-mix(in srgb, var(--soft) 14%, var(--surface)); }
 .badge.old { color: var(--muted); }
+@media (min-width: 760px) { nav.tabs { flex-wrap: wrap; overflow-x: visible; } nav.tabs button { padding: 10px 13px 12px; font-size: 1.08rem; } }
+.games { border-top: 2px solid var(--ink); }
+.game { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.game .t { display: grid; grid-template-columns: minmax(56px, 90px) 44px minmax(0, 1fr) 48px; gap: 12px; align-items: center; padding: 2px 0; }
+.game .t .nm { font-weight: 600; }
+.game .t .sc { font: 700 1.6rem/1 var(--cond); text-align: right; color: var(--muted); }
+.game .t.win .sc { color: var(--ink); }
+.game .t .pb { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.game .t .pb i { display: block; height: 100%; background: var(--muted); border-radius: 4px; }
+.game .t.win .pb i { background: var(--turf); }
+:root[data-theme="dark"] .game .t.win .pb i { background: var(--on-turf-muted); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .game .t.win .pb i { background: var(--on-turf-muted); } }
+.game .t .pc { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.game .t.win .pc { color: var(--ink); font-weight: 600; }
+.game .chips { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+.game .perf { margin: 8px 0 0; color: var(--muted); font-size: .9rem; }
+.mu .t { grid-template-columns: minmax(56px, 90px) 44px minmax(0, 1fr); }
+.st-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.st-grid h3 { font: 700 1.6rem/1.1 var(--cond); margin: 0 0 8px; }
+.st-grid h4 { font: 600 1rem/1.2 var(--body); margin: 16px 0 6px; }
+.st-grid table td:first-child { font-weight: 600; }
+.st-grid th, .st-grid td { padding: 6px 6px; }
+.seeds { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--ink); }
+.seeds li { display: grid; grid-template-columns: 34px 1fr auto; gap: 4px 12px; padding: 10px 2px; border-bottom: 1px solid var(--line); align-items: baseline; }
+.seeds .sd { font: 700 1.5rem/1 var(--cond); color: var(--muted); text-align: right; }
+.seeds .lbl { grid-column: 2 / 4; color: var(--muted); font-size: .88rem; }
+.seeds .rec { font-variant-numeric: tabular-nums; }
+.hunt { margin-top: 14px; }
+@media (max-width: 860px) { .st-grid { grid-template-columns: 1fr; } }
 .lineup-total { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; }
 .lineup-total strong { font: 700 3rem/1 var(--cond); }
 .lineup-total span { color: var(--muted); }
@@ -204,12 +233,15 @@ tr.none td { color: var(--muted); }
     </div>
     <nav class="tabs" role="tablist" aria-label="Sections">
       <button role="tab" id="tab-picks" aria-controls="picks" data-tab="picks">This week's top 10</button>
+      <button role="tab" id="tab-games" aria-controls="games" data-tab="games">Game picks</button>
       <button role="tab" id="tab-waivers" aria-controls="waivers" data-tab="waivers">Waiver wire</button>
       <button role="tab" id="tab-dvp" aria-controls="dvp" data-tab="dvp">Defense vs position</button>
       <button role="tab" id="tab-teams" aria-controls="teams" data-tab="teams">Team offense</button>
       <button role="tab" id="tab-injuries" aria-controls="injuries" data-tab="injuries">Injuries</button>
       <button role="tab" id="tab-totw" aria-controls="totw" data-tab="totw">Team of the week</button>
       <button role="tab" id="tab-tots" aria-controls="tots" data-tab="tots">Team of the season</button>
+      <button role="tab" id="tab-matchups" aria-controls="matchups" data-tab="matchups">Matchups</button>
+      <button role="tab" id="tab-standings" aria-controls="standings" data-tab="standings">Standings</button>
       <button role="tab" id="tab-log" aria-controls="log" data-tab="log">Game log</button>
     </nav>
   </div>
@@ -260,6 +292,23 @@ tr.none td { color: var(--muted); }
         <div class="scroll"><table class="heat" id="dvp-table"></table></div>
         <div class="detail" id="dvp-detail" aria-live="polite"></div>
       </div>
+    </section>
+
+    <!-- Game picks -->
+    <section id="games" role="tabpanel" aria-labelledby="tab-games" hidden>
+      <h2 id="games-title">Game picks</h2>
+      <p class="lede" id="games-lede"></p>
+      <div class="toolbar">
+        <label class="field-ctl">Week <select id="games-week"></select></label>
+      </div>
+      <p class="summary" id="games-record"></p>
+      <div class="games" id="games-list"></div>
+      <details class="method">
+        <summary>How game picks are made</summary>
+        <p>Each team gets an offense rating (points it scores) and a defense rating (points it allows), with recent games counting more. Early in the season the ratings lean on last season, pulled a third of the way back to average since teams change. A game's score is the home offense against the away defense and vice versa, plus about 1 point for being at home.</p>
+        <p>When Vegas has posted a line, the predicted score is 70% the betting market and 30% the team ratings, because betting lines are hard to beat. Win chances come from the predicted margin: an NFL game's final margin typically lands within about 13 points of the expected margin.</p>
+        <p>For weeks already played, the picks use only what was known before that week, so the record shown is a fair test.</p>
+      </details>
     </section>
 
     <!-- Waiver wire -->
@@ -338,6 +387,31 @@ tr.none td { color: var(--muted); }
       <div id="tots-body"></div>
     </section>
 
+    <!-- Matchups -->
+    <section id="matchups" role="tabpanel" aria-labelledby="tab-matchups" hidden>
+      <h2>Matchups</h2>
+      <p class="lede">Every game from any week since 2015, with the final score, how it went against the Vegas line, and the top fantasy performers.</p>
+      <div class="toolbar">
+        <label class="field-ctl">Season <select id="mu-season"></select></label>
+        <label class="field-ctl">Week <select id="mu-week"></select></label>
+      </div>
+      <div class="games" id="mu-list"></div>
+    </section>
+
+    <!-- Standings -->
+    <section id="standings" role="tabpanel" aria-labelledby="tab-standings" hidden>
+      <h2>Standings</h2>
+      <p class="lede" id="st-lede"></p>
+      <div class="toolbar">
+        <div class="field-ctl"><span id="st-view-label">View</span>
+          <div class="seg" role="group" aria-labelledby="st-view-label" id="st-view">
+            <button data-view="div">Division rankings</button><button data-view="playoff">Playoff picture</button></div></div>
+        <label class="field-ctl">Season <select id="st-season"></select></label>
+        <label class="field-ctl">Through week <select id="st-week"></select></label>
+      </div>
+      <div id="st-body"></div>
+    </section>
+
     <!-- Game log -->
     <section id="log" role="tabpanel" aria-labelledby="tab-log" hidden>
       <h2>Game log</h2>
@@ -388,6 +462,9 @@ const state = {
   dvp: { view: store("dvpView") || "pos", season: null, from: 1, to: 18, sortCol: null, sortDir: -1, sel: null },
   wv: { size: store("wvSize") || "12", pos: "" },
   totw: { season: null, week: null },
+  games: { week: null },
+  mu: { season: null, week: null },
+  st: { view: "div", season: null, week: null },
   tots: { season: null, min: null },
   tm: { season: null, from: 1, to: 18, sort: "pf", dir: -1, sel: null },
   inj: { view: "players", team: "", pos: "fantasy", status: "" },
@@ -441,6 +518,9 @@ function init(data) {
   state.totw.season = state.tots.season = state.dvp.season;
   for (const id of ["totw-season", "tots-season"]) { $(id).innerHTML = seasons.map((s) => `<option>${s}</option>`).join(""); $(id).value = state.dvp.season; }
   fillTotwWeeks(); fillTotsMin();
+  state.mu.season = state.st.season = D.meta.season;
+  fillSeasonSelects();
+  fillGamesWeeks(); fillMuWeeks(); fillStWeeks();
   loadHistory();
   fillTeams();
   wire();
@@ -524,6 +604,12 @@ function wire() {
     const b = e.target.closest("button"); if (!b) return;
     state.wv.pos = b.dataset.pos; renderWaivers();
   });
+  $("games-week").addEventListener("change", (e) => { state.games.week = +e.target.value; renderGames(); });
+  $("mu-season").addEventListener("change", (e) => { state.mu.season = +e.target.value; fillMuWeeks(); renderMatchups(); });
+  $("mu-week").addEventListener("change", (e) => { state.mu.week = +e.target.value; renderMatchups(); });
+  $("st-season").addEventListener("change", (e) => { state.st.season = +e.target.value; fillStWeeks(); renderStandings(); });
+  $("st-week").addEventListener("change", (e) => { state.st.week = +e.target.value; renderStandings(); });
+  $("st-view").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; state.st.view = b.dataset.view; renderStandings(); });
   $("totw-season").addEventListener("change", (e) => { state.totw.season = +e.target.value; fillTotwWeeks(); renderTotw(); });
   $("totw-week").addEventListener("change", (e) => { state.totw.week = +e.target.value; renderTotw(); });
   $("tots-season").addEventListener("change", (e) => { state.tots.season = +e.target.value; fillTotsMin(); renderTots(); });
@@ -592,7 +678,7 @@ function showTab(tab) {
 function renderAll() {
   document.querySelectorAll("#fmt-seg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.fmt === state.fmt));
   showTab(state.tab);
-  renderPicks(); renderWaivers(); renderDvp(); renderTeams(); renderInjuries(); renderTotw(); renderTots(); renderLog();
+  renderPicks(); renderWaivers(); renderDvp(); renderTeams(); renderInjuries(); renderTotw(); renderTots(); renderGames(); renderMatchups(); renderStandings(); renderLog();
 }
 
 /* ---------- Helpers ---------- */
@@ -951,8 +1037,10 @@ async function loadHistory() {
       const o = {}; h.season_cols.forEach((k, i) => (o[k] = r[i]));
       const p = h.players[o.p]; o.id = p[0]; o.name = p[1]; o.pos = p[2]; return o;
     });
-    HIST = { seasons: h.seasons, rows, seasonRows };
+    HIST = { seasons: h.seasons, rows, seasonRows, games: h.games || [] };
     const all = [...new Set(h.seasons.concat(D.meta.seasons))].sort((a, b) => b - a);
+    fillSeasonSelects();
+    if (!allGames(state.mu.season).length) { state.mu.season = D.meta.season; }
     for (const id of ["totw-season", "tots-season"]) {
       const cur = $(id).value;
       $(id).innerHTML = all.map((x) => `<option>${x}</option>`).join("");
@@ -1042,6 +1130,323 @@ function renderTots() {
   body.innerHTML = `<p class="lineup-total"><strong>${f1(total)}</strong><span>${FMT_NAME[fmt]} points per week this lineup averages in ${S.season}</span></p>
     ${lineupHtml(lineup, (o) => o.avg, "pts/game", detail)}
     <div class="missed"><h3>Just missed</h3>${lineupHtml(rest.slice(0, 5).map((c) => ({ label: c.pos, c })), (o) => o.avg, "pts/game", detail)}</div>`;
+}
+
+/* ---------- Games: schedule, ratings, predictions ---------- */
+const HFA = 1.8, MARGIN_SD = 13.5, VEGAS_WEIGHT = 0.7;
+const G = (r) => ({ s: r[0], wk: r[1], home: r[2], away: r[3], hs: r[4], as: r[5], total: r[6], spread: r[7], day: r[8] });
+function allSeasons() {
+  return [...new Set((HIST ? HIST.seasons : []).concat(D.meta.seasons))].sort((a, b) => b - a);
+}
+function allGames(season) {
+  const src = D.schedule && D.schedule.some((g) => g[0] === season) ? D.schedule : HIST && HIST.games ? HIST.games : [];
+  return src.filter((g) => g[0] === season).map(G);
+}
+const isFinal = (g) => g.hs != null && g.as != null;
+function fillSeasonSelects() {
+  const seasons = allSeasons();
+  for (const id of ["mu-season", "st-season"]) {
+    const cur = $(id).value || D.meta.season;
+    $(id).innerHTML = seasons.map((x) => `<option>${x}</option>`).join("");
+    $(id).value = cur;
+  }
+}
+function normCdf(z) { // Abramowitz-Stegun approximation
+  const t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989423 * Math.exp(-z * z / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return z > 0 ? 1 - p : p;
+}
+const ratingCache = new Map();
+function ratings(season, beforeWk) {
+  const key = season + "|" + beforeWk;
+  if (ratingCache.has(key)) return ratingCache.get(key);
+  const games = allGames(season).filter((g) => g.wk < beforeWk && isFinal(g));
+  const prev = allGames(season - 1).filter(isFinal);
+  const pool = games.length ? games : prev;
+  const L = pool.length ? pool.reduce((a, g) => a + g.hs + g.as, 0) / (2 * pool.length) : 22;
+  const prior = {};
+  for (const g of prev) for (const [t, f, a] of [[g.home, g.hs, g.as], [g.away, g.as, g.hs]]) {
+    const o = (prior[t] ??= { f: 0, a: 0, n: 0 }); o.f += f; o.a += a; o.n++;
+  }
+  const acc = {};
+  for (const g of games) {
+    const w = Math.pow(0.92, beforeWk - 1 - g.wk);
+    for (const [t, f, a] of [[g.home, g.hs, g.as], [g.away, g.as, g.hs]]) {
+      const o = (acc[t] ??= { f: 0, a: 0, w: 0 }); o.f += w * f; o.a += w * a; o.w += w;
+    }
+  }
+  const K = 3, off = {}, def = {};
+  const teams = new Set(Object.keys(acc).concat(allGames(season).flatMap((g) => [g.home, g.away])));
+  for (const t of teams) {
+    const pr = prior[t], po = pr ? L + (pr.f / pr.n - L) * 2 / 3 : L, pd = pr ? L + (pr.a / pr.n - L) * 2 / 3 : L;
+    const o = acc[t] || { f: 0, a: 0, w: 0 };
+    off[t] = (o.f + K * po) / (o.w + K); def[t] = (o.a + K * pd) / (o.w + K);
+  }
+  const R = { off, def, L };
+  ratingCache.set(key, R);
+  return R;
+}
+function predictGame(g, R) {
+  const o = (t) => R.off[t] ?? R.L, d = (t) => R.def[t] ?? R.L;
+  let hs = o(g.home) + d(g.away) - R.L + HFA / 2, as = o(g.away) + d(g.home) - R.L - HFA / 2;
+  const hasLine = g.total != null && g.spread != null;
+  if (hasLine) {
+    const vh = (g.total + g.spread) / 2, va = (g.total - g.spread) / 2;
+    hs = VEGAS_WEIGHT * vh + (1 - VEGAS_WEIGHT) * hs; as = VEGAS_WEIGHT * va + (1 - VEGAS_WEIGHT) * as;
+  }
+  const p = normCdf((hs - as) / MARGIN_SD);
+  let rh = Math.round(hs), ra = Math.round(as);
+  if (rh === ra) { if (hs >= as) rh++; else ra++; }
+  return { hs: rh, as: ra, p, pick: hs >= as ? g.home : g.away, hasLine };
+}
+function lineTxt(g) {
+  if (g.spread == null) return null;
+  const fav = g.spread > 0 ? g.home : g.away, n = Math.abs(g.spread);
+  return `${n === 0 ? "Pick'em" : `${fav} −${n}`}${g.total != null ? `, O/U ${g.total}` : ""}`;
+}
+function dayTxt(d) {
+  const dt = new Date(d + "T12:00:00");
+  return isNaN(dt) ? "" : dt.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+
+function fillGamesWeeks() {
+  const season = D.meta.season, games = allGames(season);
+  const wks = [...new Set(games.map((g) => g.wk))].sort((a, b) => a - b);
+  $("games-week").innerHTML = wks.map((w) => `<option value="${w}">Week ${w}${games.filter((g) => g.wk === w).every(isFinal) ? " (final)" : ""}</option>`).join("");
+  state.games.week = D.meta.next_week || wks[wks.length - 1];
+  if (state.games.week) $("games-week").value = state.games.week;
+}
+function pickRecord(season, uptoWk) {
+  let w = 0, l = 0, lastW = 0, lastL = 0;
+  const last = uptoWk - 1;
+  for (const g of allGames(season)) {
+    if (!isFinal(g) || g.wk >= uptoWk || g.hs === g.as) continue;
+    const pr = predictGame(g, ratings(season, g.wk));
+    const ok = pr.pick === (g.hs > g.as ? g.home : g.away);
+    ok ? w++ : l++;
+    if (g.wk === last) ok ? lastW++ : lastL++;
+  }
+  return { w, l, lastW, lastL, last };
+}
+function renderGames() {
+  const season = D.meta.season, wk = state.games.week, list = $("games-list");
+  $("tab-games").textContent = "Game picks";
+  const games = allGames(season).filter((g) => g.wk === wk);
+  $("games-title").textContent = wk ? `Week ${wk} game picks` : "Game picks";
+  if (!games.length) { $("games-lede").textContent = ""; $("games-record").textContent = ""; list.innerHTML = `<p class="empty">No schedule available yet.</p>`; return; }
+  const R = ratings(season, wk);
+  const anyFinal = games.some(isFinal), allFinal = games.every(isFinal);
+  $("games-lede").textContent = allFinal
+    ? `Week ${wk} is over. These are the picks the model would have made before the week started, next to the real results.`
+    : `Predicted winner, score, and win chance for every week ${wk} game.${anyFinal ? " Games already played show the final score." : ""} Picks blend Vegas lines with team ratings.`;
+  const rec = pickRecord(season, D.meta.next_week || 99);
+  $("games-record").textContent = rec.w + rec.l
+    ? `Picking winners this season: ${rec.w}–${rec.l} (${Math.round(100 * rec.w / (rec.w + rec.l))}%).${rec.lastW + rec.lastL ? ` Week ${rec.last}: ${rec.lastW}–${rec.lastL}.` : ""}`
+    : "";
+  list.innerHTML = games.map((g) => {
+    const pr = predictGame(g, R);
+    const line = (t, sc, prob, win) => `<div class="t${win ? " win" : ""}"><span class="nm">${esc(t)}</span><span class="sc">${sc}</span>
+      <span class="pb" aria-hidden="true"><i style="width:${Math.round(prob * 100)}%"></i></span><span class="pc">${Math.round(prob * 100)}%</span></div>`;
+    const chips = [];
+    if (pr.hasLine) chips.push(`<span class="chip">Vegas: ${esc(lineTxt(g))}</span>`);
+    else chips.push(`<span class="chip">No Vegas line yet; ratings only</span>`);
+    if (dayTxt(g.day)) chips.push(`<span class="chip">${esc(dayTxt(g.day))}</span>`);
+    if (isFinal(g)) {
+      const winner = g.hs > g.as ? g.home : g.hs < g.as ? g.away : null;
+      const ok = winner && winner === pr.pick;
+      chips.push(`<span class="chip ${winner ? (ok ? "good" : "bad") : ""}">Final: ${esc(g.away)} ${g.as}, ${esc(g.home)} ${g.hs}${winner ? (ok ? ", pick correct" : ", pick missed") : ", tie"}</span>`);
+    }
+    return `<div class="game" aria-label="${esc(g.away)} at ${esc(g.home)}">
+      ${line(g.away, pr.as, 1 - pr.p, pr.pick === g.away)}
+      ${line("at " + g.home, pr.hs, pr.p, pr.pick === g.home)}
+      <div class="chips">${chips.join("")}</div></div>`;
+  }).join("");
+}
+
+/* ---------- Matchups (results) ---------- */
+function fillMuWeeks() {
+  const S = state.mu, games = allGames(+S.season).filter(isFinal);
+  const wks = [...new Set(games.map((g) => g.wk))].sort((a, b) => a - b);
+  $("mu-week").innerHTML = wks.map((w) => `<option value="${w}">Week ${w}</option>`).join("");
+  S.week = wks[wks.length - 1];
+  if (S.week) $("mu-week").value = S.week;
+}
+function renderMatchups() {
+  const S = state.mu, fmt = state.fmt, list = $("mu-list");
+  const games = allGames(+S.season).filter((g) => g.wk === S.week && isFinal(g));
+  if (!games.length) { list.innerHTML = `<p class="empty">No completed games for this season yet${HIST === null ? " (older seasons are still loading)" : ""}.</p>`; return; }
+  const rows = lineupRows(+S.season).filter((r) => r.wk === S.week);
+  const partial = !inMain(+S.season);
+  list.innerHTML = games.map((g) => {
+    const hw = g.hs > g.as, aw = g.as > g.hs;
+    const line = (t, sc, win) => `<div class="t${win ? " win" : ""}"><span class="nm">${esc(t)}</span><span class="sc">${sc}</span><span></span></div>`;
+    const chips = [];
+    if (g.spread != null) {
+      const fav = g.spread > 0 ? g.home : g.away, n = Math.abs(g.spread);
+      const favMargin = g.spread > 0 ? g.hs - g.as : g.as - g.hs;
+      if (n === 0) chips.push(`<span class="chip">Pick'em</span>`);
+      else chips.push(`<span class="chip">${esc(fav)} −${n}: ${favMargin > n ? "covered" : favMargin === n ? "push" : "didn't cover"}</span>`);
+    }
+    if (g.total != null) {
+      const pts = g.hs + g.as;
+      chips.push(`<span class="chip">${pts > g.total ? "Over" : pts < g.total ? "Under" : "Push on"} ${g.total} (${pts} points)</span>`);
+    }
+    if (dayTxt(g.day)) chips.push(`<span class="chip">${esc(dayTxt(g.day))}</span>`);
+    const perf = rows.filter((r) => (r.tm === g.home && r.opp === g.away) || (r.tm === g.away && r.opp === g.home))
+      .sort((a, b) => b[fmt] - a[fmt]).slice(0, 3);
+    return `<div class="game mu" aria-label="${esc(g.away)} at ${esc(g.home)}">
+      ${line(g.away, g.as, aw)}${line("at " + g.home, g.hs, hw)}
+      <div class="chips">${chips.join("")}</div>
+      ${perf.length ? `<p class="perf">Top fantasy${partial ? " (among the week's top scorers)" : ""}: ${perf.map((r) => `${esc(r.name)} (${esc(r.tm)} ${r.pos}) ${f1(r[fmt])}`).join(", ")}</p>` : ""}
+    </div>`;
+  }).join("");
+}
+
+/* ---------- Standings & playoff picture ---------- */
+const DIVISIONS = {
+  "AFC East": ["BUF", "MIA", "NE", "NYJ"], "AFC North": ["BAL", "CIN", "CLE", "PIT"],
+  "AFC South": ["HOU", "IND", "JAX", "TEN"], "AFC West": ["DEN", "KC", "LV", "LAC", "OAK", "SD"],
+  "NFC East": ["DAL", "NYG", "PHI", "WAS"], "NFC North": ["CHI", "DET", "GB", "MIN"],
+  "NFC South": ["ATL", "CAR", "NO", "TB"], "NFC West": ["ARI", "LA", "SF", "SEA", "STL", "LAR"],
+};
+const TEAM_DIV = {};
+for (const [d, ts] of Object.entries(DIVISIONS)) for (const t of ts) TEAM_DIV[t] = d;
+const confOf = (t) => (TEAM_DIV[t] || "").slice(0, 3);
+
+function fillStWeeks() {
+  const S = state.st, games = allGames(+S.season);
+  const wks = [...new Set(games.filter(isFinal).map((g) => g.wk))].sort((a, b) => a - b);
+  $("st-week").innerHTML = wks.map((w) => `<option value="${w}">Week ${w}</option>`).join("");
+  S.week = wks[wks.length - 1];
+  if (S.week) $("st-week").value = S.week;
+}
+function buildRecords(season, throughWk) {
+  const games = allGames(season);
+  const R = {};
+  const rec = (t) => (R[t] ??= { t, w: 0, l: 0, tie: 0, pf: 0, pa: 0, dw: 0, dl: 0, dt: 0, cw: 0, cl: 0, ct: 0, h2h: {}, res: [] });
+  for (const g of games) { rec(g.home); rec(g.away); }
+  for (const g of games.filter((g) => isFinal(g) && g.wk <= throughWk).sort((a, b) => a.wk - b.wk)) {
+    for (const [t, o, f, a] of [[g.home, g.away, g.hs, g.as], [g.away, g.home, g.as, g.hs]]) {
+      const r = rec(t), res = f > a ? "W" : f < a ? "L" : "T";
+      r.pf += f; r.pa += a; r.res.push(res);
+      if (res === "W") r.w++; else if (res === "L") r.l++; else r.tie++;
+      const sameDiv = TEAM_DIV[t] && TEAM_DIV[t] === TEAM_DIV[o], sameConf = confOf(t) && confOf(t) === confOf(o);
+      if (sameDiv) { if (res === "W") r.dw++; else if (res === "L") r.dl++; else r.dt++; }
+      if (sameConf) { if (res === "W") r.cw++; else if (res === "L") r.cl++; else r.ct++; }
+      const h = (r.h2h[o] ??= { w: 0, l: 0, t: 0 }); if (res === "W") h.w++; else if (res === "L") h.l++; else h.t++;
+    }
+  }
+  for (const r of Object.values(R)) {
+    const gp = r.w + r.l + r.tie;
+    r.pct = gp ? (r.w + r.tie / 2) / gp : 0;
+    r.dpct = r.dw + r.dl + r.dt ? (r.dw + r.dt / 2) / (r.dw + r.dl + r.dt) : 0;
+    r.cpct = r.cw + r.cl + r.ct ? (r.cw + r.ct / 2) / (r.cw + r.cl + r.ct) : 0;
+    let n = 0; const last = r.res[r.res.length - 1];
+    for (let i = r.res.length - 1; i >= 0 && r.res[i] === last; i--) n++;
+    r.streak = last ? last + n : "";
+  }
+  return R;
+}
+function cmpTeams(a, b) {
+  if (b.pct !== a.pct) return b.pct - a.pct;
+  const h = a.h2h[b.t];
+  if (h && h.w !== h.l) return h.l - h.w;
+  if (TEAM_DIV[a.t] === TEAM_DIV[b.t] && b.dpct !== a.dpct) return b.dpct - a.dpct;
+  if (b.cpct !== a.cpct) return b.cpct - a.cpct;
+  return (b.pf - b.pa) - (a.pf - a.pa) || a.t.localeCompare(b.t);
+}
+const recTxt = (r) => `${r.w}-${r.l}${r.tie ? "-" + r.tie : ""}`;
+function seedConference(R, conf, seeds) {
+  const teams = Object.values(R).filter((r) => confOf(r.t) === conf);
+  const divs = [...new Set(teams.map((r) => TEAM_DIV[r.t]))];
+  const winners = divs.map((d) => teams.filter((r) => TEAM_DIV[r.t] === d).sort(cmpTeams)[0]).filter(Boolean).sort(cmpTeams);
+  const others = teams.filter((r) => !winners.includes(r)).sort(cmpTeams);
+  return { winners, wild: others.slice(0, seeds - winners.length), hunt: others.slice(seeds - winners.length) };
+}
+
+// Playoff odds: simulate the rest of the season with the game-pick model
+const oddsCache = new Map();
+function playoffOdds(season, throughWk) {
+  const key = season + "|" + throughWk;
+  if (oddsCache.has(key)) return oddsCache.get(key);
+  const games = allGames(season);
+  const remaining = games.filter((g) => !(isFinal(g) && g.wk <= throughWk));
+  if (!remaining.length) { oddsCache.set(key, null); return null; }
+  const base = buildRecords(season, throughWk);
+  const R = ratings(season, throughWk + 1);
+  const probs = remaining.map((g) => predictGame(g, R).p);
+  const teams = Object.keys(base), idx = Object.fromEntries(teams.map((t, i) => [t, i]));
+  const seeds = season >= 2020 ? 7 : 6, N = 2000;
+  const make = new Array(teams.length).fill(0), div = new Array(teams.length).fill(0), top = new Array(teams.length).fill(0);
+  const pd = teams.map((t) => base[t].pf - base[t].pa);
+  const w0 = teams.map((t) => base[t].w + base[t].tie / 2), gp0 = teams.map((t) => base[t].w + base[t].l + base[t].tie);
+  const totalGames = teams.map((t, i) => gp0[i] + remaining.filter((g) => g.home === t || g.away === t).length);
+  const byConf = { AFC: [], NFC: [] };
+  teams.forEach((t, i) => { const c = confOf(t); if (byConf[c]) byConf[c].push(i); });
+  for (let s = 0; s < N; s++) {
+    const w = w0.slice();
+    for (let k = 0; k < remaining.length; k++) {
+      const g = remaining[k];
+      if (Math.random() < probs[k]) w[idx[g.home]]++; else w[idx[g.away]]++;
+    }
+    const score = (i) => w[i] / (totalGames[i] || 1) + pd[i] * 1e-5 + Math.random() * 1e-7;
+    for (const conf of ["AFC", "NFC"]) {
+      const ids = byConf[conf], winners = [];
+      const divNames = [...new Set(ids.map((i) => TEAM_DIV[teams[i]]))];
+      for (const d of divNames) {
+        const best = ids.filter((i) => TEAM_DIV[teams[i]] === d).sort((a, b) => score(b) - score(a))[0];
+        winners.push(best); div[best]++;
+      }
+      winners.sort((a, b) => score(b) - score(a));
+      top[winners[0]]++;
+      const wild = ids.filter((i) => !winners.includes(i)).sort((a, b) => score(b) - score(a)).slice(0, seeds - winners.length);
+      for (const i of winners.concat(wild)) make[i]++;
+    }
+  }
+  const out = {};
+  teams.forEach((t, i) => (out[t] = { make: make[i] / N, div: div[i] / N, top: top[i] / N }));
+  oddsCache.set(key, out);
+  return out;
+}
+const pctTxt = (x) => (x >= 0.995 ? ">99%" : x <= 0.005 ? (x > 0 ? "<1%" : "0%") : Math.round(x * 100) + "%");
+
+function renderStandings() {
+  const S = state.st, season = +S.season, body = $("st-body");
+  document.querySelectorAll("#st-view button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.view === S.view));
+  if (!S.week) { $("st-lede").textContent = ""; body.innerHTML = `<p class="empty">No games have been played in this season yet${HIST === null ? " (older seasons are still loading)" : ""}.</p>`; return; }
+  const R = buildRecords(season, S.week);
+  const odds = season === D.meta.season ? playoffOdds(season, S.week) : null;
+  const seeds = season >= 2020 ? 7 : 6;
+  $("st-lede").textContent = `Standings through week ${S.week} of ${season}. ${seeds} teams per conference make the playoffs: the 4 division winners plus ${seeds - 4} wild cards. `
+    + `Tiebreakers here are simplified (head-to-head, division record, conference record, point differential), so very close races can differ from the official standings.`
+    + (odds ? " Playoff odds come from simulating the rest of the season 2,000 times with the game-pick model." : "");
+  if (S.view === "div") {
+    body.innerHTML = `<div class="st-grid">${["AFC", "NFC"].map((conf) => `<div><h3>${conf}</h3>${Object.keys(DIVISIONS).filter((d) => d.startsWith(conf)).map((d) => {
+      const ts = Object.values(R).filter((r) => TEAM_DIV[r.t] === d).sort(cmpTeams);
+      if (!ts.length) return "";
+      return `<h4>${d}</h4><div class="scroll"><table><thead><tr><th>Team</th><th class="num">W-L</th><th class="num">Pct</th><th class="num">Div</th><th class="num">Conf</th><th class="num">PF</th><th class="num">PA</th><th class="num">Diff</th><th>Strk</th>${odds ? `<th class="num">Playoffs</th>` : ""}</tr></thead><tbody>
+        ${ts.map((r) => `<tr><td>${esc(r.t)}</td><td class="num">${recTxt(r)}</td><td class="num">${r.pct.toFixed(3).replace(/^0/, "")}</td>
+          <td class="num">${r.dw}-${r.dl}${r.dt ? "-" + r.dt : ""}</td><td class="num">${r.cw}-${r.cl}${r.ct ? "-" + r.ct : ""}</td>
+          <td class="num">${r.pf}</td><td class="num">${r.pa}</td><td class="num">${r.pf - r.pa > 0 ? "+" : ""}${r.pf - r.pa}</td><td>${r.streak}</td>
+          ${odds ? `<td class="num">${pctTxt(odds[r.t] ? odds[r.t].make : 0)}</td>` : ""}</tr>`).join("")}
+      </tbody></table></div>`;
+    }).join("")}</div>`).join("")}</div>`;
+    return;
+  }
+  body.innerHTML = `<div class="st-grid">${["AFC", "NFC"].map((conf) => {
+    const { winners, wild, hunt } = seedConference(R, conf, seeds);
+    const last = wild[wild.length - 1];
+    const gb = (r) => last ? ((last.w - r.w) + (r.l - last.l)) / 2 : 0;
+    const oddsTxt = (r) => odds && odds[r.t] ? `${pctTxt(odds[r.t].make)} to make it` : "";
+    return `<div><h3>${conf}</h3><ol class="seeds">
+      ${winners.concat(wild).map((r, i) => `<li><span class="sd">${i + 1}</span><span><strong>${esc(r.t)}</strong> <span class="rec">${recTxt(r)}</span></span><span class="statline">${oddsTxt(r)}</span>
+        <span class="lbl">${i < winners.length ? `Leads the ${TEAM_DIV[r.t]}${i < (seeds === 7 ? 1 : 2) ? ", first-round bye" : ""}` : "Wild card"}</span></li>`).join("")}
+      </ol>
+      <div class="hunt"><h4>In the hunt</h4><ol class="seeds">
+      ${hunt.slice(0, 6).map((r) => `<li><span class="sd"></span><span><strong>${esc(r.t)}</strong> <span class="rec">${recTxt(r)}</span></span><span class="statline">${oddsTxt(r)}</span>
+        <span class="lbl">${gb(r) > 0 ? `${gb(r)} game${gb(r) === 1 ? "" : "s"} behind the last wild card` : "Tied with the last wild card, losing the tiebreaker"}</span></li>`).join("")}
+      </ol></div></div>`;
+  }).join("")}</div>`;
 }
 
 /* ---------- Game log ---------- */
