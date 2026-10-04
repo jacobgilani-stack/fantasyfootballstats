@@ -1,12 +1,15 @@
 # Fantasy Matchup Lab
 
-A web page with three tools:
+A web page with six tools:
 
-- **This week's top 10:** projected best QBs, RBs, WRs, and TEs for the upcoming week.
-- **Defense vs position:** points every defense allows per game to each position, as a heat map. Click a cell to see every player who faced that defense.
-- **Game log:** every QB/RB/WR/TE game, filterable by position, opponent, team, home/away, week range, points, and player name.
+- **This week's top 10:** projected best QBs, RBs, WRs, and TEs for the upcoming week (injured players left off).
+- **Waiver wire:** the best players likely to be available in 8-, 10-, and 12-team leagues.
+- **Defense vs position:** points every defense allows per game to each position or depth-chart role (RB1–RB4, WR1–WR6, TE1–TE4), as a heat map.
+- **Team offense:** points, fantasy production, yards, and target/carry shares for every offense.
+- **Injuries:** the official NFL injury report by player or by team, with who's next up on the depth chart.
+- **Game log:** every QB/RB/WR/TE game, filterable by position, role, opponent, team, home/away, week range, points, and player name.
 
-Standard, half PPR, and PPR scoring all work. Stats come from [nflverse](https://github.com/nflverse), which is free and updates nightly during the season.
+Standard, half PPR, and PPR scoring all work. Stats, schedules, and injury reports come from [nflverse](https://github.com/nflverse), which is free and updates nightly during the season. ESPN's public fantasy data is used for % rostered and IR designations when it's reachable; if it isn't, the page estimates availability instead.
 
 ## Put it online (about 10 minutes, free)
 
@@ -18,7 +21,7 @@ Standard, half PPR, and PPR scoring all work. Stats come from [nflverse](https:/
 4. Go to the **Actions** tab, click **Update stats and publish site**, then **Run workflow**.
 5. When it finishes (about a minute), your site is at `https://YOUR-USERNAME.github.io/fantasy-lab/`.
 
-After that it updates itself every Tuesday and Saturday morning. You never need to touch it.
+After that it updates itself Tuesday, Thursday, Saturday, and Sunday mornings, so injury news is fresh before games. You never need to touch it.
 
 Note: GitHub pauses scheduled jobs on repos with no activity for 60 days. If updates stop, open the Actions tab and re-enable it.
 
