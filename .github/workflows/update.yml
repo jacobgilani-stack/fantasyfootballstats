@@ -2,8 +2,11 @@ name: Update stats and publish site
 
 on:
   schedule:
-    - cron: "0 12 * * 2,6"   # Tuesday and Saturday, ~8am Eastern
-  workflow_dispatch:
+    - cron: "0 13 * * 2"   # Tuesday 9am ET: final stats after Monday night, new projections and waiver picks
+    - cron: "0 13 * * 4"   # Thursday 9am ET: first injury reports of the week, before Thursday night
+    - cron: "0 13 * * 6"   # Saturday 9am ET: final injury reports (released Friday), updated lines
+    - cron: "0 14 * * 0"   # Sunday 10am ET: last refresh of injury statuses before kickoff
+  workflow_dispatch:        # lets you run it any time from the Actions tab
   push:
     branches: [main]
 
@@ -17,26 +20,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install pandas numpy
-      - run: python fetch_data.py
+      - name: Download stats and build data.json
+        run: python fetch_data.py --out site/data.json
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
       - id: deployment
         uses: actions/deploy-pages@v4
