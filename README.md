@@ -1,14 +1,17 @@
 # Fantasy Matchup Lab
 
-A web page with eight tools:
+A web page with eleven tools:
 
 - **This week's top 10:** projected best QBs, RBs, WRs, and TEs for the upcoming week (injured players left off).
+- **Game picks:** predicted winner, score, and win chance for every game, with the model's record this season.
 - **Waiver wire:** the best players likely to be available in 8-, 10-, and 12-team leagues.
 - **Defense vs position:** points every defense allows per game to each position or depth-chart role (RB1–RB4, WR1–WR6, TE1–TE4), as a heat map.
 - **Team offense:** points, fantasy production, yards, and target/carry shares for every offense.
 - **Injuries:** the official NFL injury report by player or by team, with who's next up on the depth chart.
 - **Team of the week:** the highest-scoring possible lineup for any week since 2015.
 - **Team of the season:** the best lineup by average points per game for any season since 2015, with a minimum-games filter.
+- **Matchups:** every game from any week since 2015, with scores, spread and over/under results, and top fantasy performers.
+- **Standings:** division rankings and the playoff picture for any season since 2015, plus simulated playoff odds this season.
 - **Game log:** every QB/RB/WR/TE game, filterable by position, role, opponent, team, home/away, week range, points, and player name.
 
 Standard, half PPR, and PPR scoring all work. Stats, schedules, and injury reports come from [nflverse](https://github.com/nflverse), which is free and updates nightly during the season. ESPN's public fantasy data is used for % rostered and IR designations when it's reachable; if it isn't, the page estimates availability instead.
