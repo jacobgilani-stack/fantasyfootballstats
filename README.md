@@ -7,8 +7,8 @@ A web page with eight tools:
 - **Defense vs position:** points every defense allows per game to each position or depth-chart role (RB1–RB4, WR1–WR6, TE1–TE4), as a heat map.
 - **Team offense:** points, fantasy production, yards, and target/carry shares for every offense.
 - **Injuries:** the official NFL injury report by player or by team, with who's next up on the depth chart.
-- **Team of the week:** the highest-scoring possible lineup for any week you pick.
-- **Team of the season:** the best lineup by average points per game, with a minimum-games filter.
+- **Team of the week:** the highest-scoring possible lineup for any week since 2015.
+- **Team of the season:** the best lineup by average points per game for any season since 2015, with a minimum-games filter.
 - **Game log:** every QB/RB/WR/TE game, filterable by position, role, opponent, team, home/away, week range, points, and player name.
 
 Standard, half PPR, and PPR scoring all work. Stats, schedules, and injury reports come from [nflverse](https://github.com/nflverse), which is free and updates nightly during the season. ESPN's public fantasy data is used for % rostered and IR designations when it's reachable; if it isn't, the page estimates availability instead.
@@ -39,6 +39,10 @@ python -m http.server 8000    # then open http://localhost:8000
 ```
 
 Opening `index.html` by double-clicking won't load the data (browsers block that). The page will let you pick `data.json` manually, or use the local server above.
+
+## Files the update creates
+
+`fetch_data.py` writes two files into `site/`: `data.json` (this season and last, used by most tabs) and `history.json` (every season since 2015, used only by the team of the week and team of the season tabs, and loaded in the background). To change how far back history goes, edit `HISTORY_FROM` at the top of `fetch_data.py`.
 
 ## Tweaking the projections
 
