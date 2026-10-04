@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fantasy Matchup Lab</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏈</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --turf: #1F4D3A;
+  --turf-deep: #173D2E;
+  --on-turf: #EAF2EC;
+  --on-turf-muted: #A9C4B3;
+  --bg: #F2F4F0;
+  --surface: #FFFFFF;
+  --ink: #18211C;
+  --muted: #5A665E;
+  --line: #D6DCD5;
+  --soft: #E2701F;   /* pylon orange: defense gives up points */
+  --tough: #3A6CA3;  /* steel blue: defense shuts it down */
+  --warn: #A3460F;
+  --focus: #E2701F;
+  --cond: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light dark;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --turf: #173B2C; --turf-deep: #11301F; --on-turf: #E3EEE6; --on-turf-muted: #93B19F;
+    --bg: #111915; --surface: #18221D; --ink: #E4EBE6; --muted: #98A69D; --line: #2B3932;
+    --soft: #F08A45; --tough: #6E9DD4; --warn: #F0A05F; --focus: #F08A45;
+  }
+}
+:root[data-theme="dark"] {
+  --turf: #173B2C; --turf-deep: #11301F; --on-turf: #E3EEE6; --on-turf-muted: #93B19F;
+  --bg: #111915; --surface: #18221D; --ink: #E4EBE6; --muted: #98A69D; --line: #2B3932;
+  --soft: #F08A45; --tough: #6E9DD4; --warn: #F0A05F; --focus: #F08A45;
+}
+*, *::before, *::after { box-sizing: inherit; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 var(--body); }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+
+/* Field header: yard lines every 10% */
+header.field {
+  background:
+    repeating-linear-gradient(90deg, transparent 0 calc(10% - 2px), rgba(255,255,255,.09) calc(10% - 2px) 10%),
+    linear-gradient(180deg, var(--turf), var(--turf-deep));
+  color: var(--on-turf);
+  padding: 28px 0 0;
+}
+.title-row { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; }
+h1 { font: 700 clamp(2.4rem, 6vw, 4rem)/0.95 var(--cond); margin: 0; letter-spacing: -0.01em; }
+.status { color: var(--on-turf-muted); margin: 8px 0 0; font-size: .95rem; }
+.scoring { display: flex; flex-direction: column; gap: 6px; }
+.scoring-label { font-size: .85rem; color: var(--on-turf-muted); }
+
+.seg { display: inline-flex; border-radius: 999px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; padding: 6px 14px; border-radius: 999px; cursor: pointer; font-weight: 600; white-space: nowrap; }
+.field .seg { background: rgba(0,0,0,.22); }
+.field .seg button { color: var(--on-turf-muted); }
+.field .seg button[aria-pressed="true"] { background: var(--on-turf); color: var(--turf-deep); }
+main .seg { background: var(--line); }
+main .seg button { color: var(--muted); }
+main .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+
+nav.tabs { display: flex; gap: 4px; margin-top: 24px; overflow-x: auto; }
+nav.tabs button {
+  border: 0; background: transparent; color: var(--on-turf-muted); cursor: pointer;
+  font: 600 1.15rem/1 var(--cond); padding: 12px 16px 14px; border-radius: 10px 10px 0 0; white-space: nowrap;
+}
+nav.tabs button[aria-selected="true"] { background: var(--bg); color: var(--ink); }
+
+.banner { background: color-mix(in srgb, var(--soft) 16%, var(--surface)); border: 1px solid color-mix(in srgb, var(--soft) 45%, transparent); border-radius: 10px; padding: 12px 16px; margin: 20px 0 0; }
+main { padding: 24px 0 64px; }
+section[hidden] { display: none; }
+h2 { font: 700 2rem/1.05 var(--cond); margin: 0 0 4px; }
+.lede { color: var(--muted); margin: 0 0 20px; max-width: 70ch; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: end; margin-bottom: 18px; }
+.field-ctl { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; color: var(--muted); }
+.field-ctl select, .field-ctl input {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; min-width: 0; color: var(--ink);
+}
+.field-ctl input[type="search"] { width: 200px; }
+.field-ctl input[type="number"] { width: 90px; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 7px 14px; cursor: pointer; font-weight: 600; }
+.btn:hover { border-color: var(--muted); }
+.linkish { border: 0; background: none; padding: 0; color: var(--tough); cursor: pointer; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Picks: a depth chart */
+.depth { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--ink); }
+.depth li { display: grid; grid-template-columns: 52px 1fr auto; gap: 4px 16px; padding: 14px 4px; border-bottom: 1px solid var(--line); align-items: center; }
+.rank { font: 700 2rem/1 var(--cond); color: var(--muted); text-align: right; }
+.depth li:nth-child(-n+3) .rank { color: var(--ink); }
+.who { min-width: 0; }
+.who .name { font-weight: 600; font-size: 1.08rem; }
+.who .game { color: var(--muted); font-size: .92rem; }
+.pts { text-align: right; }
+.pts strong { font: 700 2.1rem/1 var(--cond); display: block; }
+.pts span { font-size: .8rem; color: var(--muted); }
+.bar { grid-column: 2 / 4; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--turf); border-radius: 3px; }
+:root[data-theme="dark"] .bar i { background: var(--on-turf-muted); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bar i { background: var(--on-turf-muted); } }
+.chips { grid-column: 2 / 4; display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: .8rem; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); background: var(--surface); }
+.chip.good { border-color: color-mix(in srgb, var(--soft) 60%, transparent); color: var(--ink); background: color-mix(in srgb, var(--soft) 14%, var(--surface)); }
+.chip.bad { border-color: color-mix(in srgb, var(--tough) 60%, transparent); color: var(--ink); background: color-mix(in srgb, var(--tough) 14%, var(--surface)); }
+.chip.warn { border-color: var(--warn); color: var(--warn); }
+details.method { margin-top: 28px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; }
+details.method summary { cursor: pointer; font-weight: 600; }
+details.method p, details.method li { color: var(--muted); max-width: 72ch; }
+
+/* Defense heat map */
+.legend { display: flex; align-items: center; gap: 10px; font-size: .85rem; color: var(--muted); margin-bottom: 12px; flex-wrap: wrap; }
+.ramp { width: 160px; height: 10px; border-radius: 5px; background: linear-gradient(90deg, var(--tough), var(--surface), var(--soft)); border: 1px solid var(--line); }
+.layout-dvp { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-weight: 600; color: var(--muted); font-size: .85rem; position: sticky; top: 0; background: var(--surface); }
+th button { border: 0; background: none; padding: 0; cursor: pointer; color: inherit; font-weight: 600; }
+th button[data-active="true"] { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.heat td { padding: 3px; }
+.heat td:first-child { padding: 6px 10px; font-weight: 600; }
+.cell { width: 100%; border: 2px solid transparent; border-radius: 6px; padding: 5px 8px; cursor: pointer; text-align: right; font-variant-numeric: tabular-nums; display: flex; justify-content: space-between; gap: 8px; }
+.cell small { color: var(--muted); }
+.cell[aria-pressed="true"] { border-color: var(--ink); }
+.detail { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; position: sticky; top: 12px; }
+.detail h3 { font: 700 1.6rem/1.1 var(--cond); margin: 0 0 4px; }
+.detail .sum { color: var(--muted); margin: 0 0 12px; }
+.empty { color: var(--muted); padding: 24px 0; }
+.statline { color: var(--muted); font-size: .85rem; }
+td.statline { white-space: normal; min-width: 170px; }
+.summary { color: var(--muted); margin: 0 0 10px; }
+.more { margin-top: 14px; }
+
+@media (max-width: 860px) {
+  .layout-dvp { grid-template-columns: 1fr; }
+  .detail { position: static; }
+}
+@media (max-width: 560px) {
+  .depth li { grid-template-columns: 34px 1fr auto; gap: 4px 10px; }
+  .rank { font-size: 1.5rem; }
+  .pts strong { font-size: 1.7rem; }
+  .field-ctl input[type="search"] { width: 160px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bar i { transition: width .35s ease-out; }
+}
+</style>
+</head>
+<body>
+<header class="field">
+  <div class="wrap">
+    <div class="title-row">
+      <div>
+        <h1>Fantasy Matchup Lab</h1>
+        <p class="status" id="status">Loading stats…</p>
+      </div>
+      <div class="scoring">
+        <span class="scoring-label" id="scoring-label">Scoring</span>
+        <div class="seg" role="group" aria-labelledby="scoring-label" id="fmt-seg">
+          <button data-fmt="std">Standard</button>
+          <button data-fmt="half">Half PPR</button>
+          <button data-fmt="ppr">PPR</button>
+        </div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button role="tab" id="tab-picks" aria-controls="picks" data-tab="picks">This week's top 10</button>
+      <button role="tab" id="tab-dvp" aria-controls="dvp" data-tab="dvp">Defense vs position</button>
+      <button role="tab" id="tab-log" aria-controls="log" data-tab="log">Game log</button>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="banner"></div>
+  <main>
+    <!-- Picks -->
+    <section id="picks" role="tabpanel" aria-labelledby="tab-picks">
+      <h2 id="picks-title">Top 10</h2>
+      <p class="lede" id="picks-lede"></p>
+      <div class="toolbar">
+        <div class="seg" role="group" aria-label="Position" id="pick-pos"></div>
+      </div>
+      <ol class="depth" id="pick-list"></ol>
+      <div class="more"><button class="btn" id="pick-more"></button></div>
+      <details class="method">
+        <summary>How the picks are made</summary>
+        <p>Each projection starts with the player's recent scoring, then adjusts for this week's opponent and game outlook. It's a simple, transparent model, not a crystal ball.</p>
+        <ul>
+          <li><strong>Form:</strong> this season's points per game, with recent games weighted more. Early in the season it's blended with last season's average so a few games don't swing it too far.</li>
+          <li><strong>Matchup:</strong> how many points this week's opponent has allowed to the position compared with the league average. Defenses with only a few games are pulled toward average. Capped at ±20%.</li>
+          <li><strong>Team total:</strong> the team's Vegas implied points for the game (from the over/under and spread). Higher-scoring games mean more fantasy points. Capped at ±15%.</li>
+          <li><strong>Usage:</strong> whether the player's targets and carries (attempts and carries for QBs) over the last three games are up or down versus his season average. Capped at ±10%.</li>
+        </ul>
+        <p>Not included: injury reports, depth-chart changes, weather, or trades after the last update. Players on bye are left out, and players who haven't played in three weeks are dropped. Check injury news before you set a lineup.</p>
+      </details>
+    </section>
+
+    <!-- Defense vs position -->
+    <section id="dvp" role="tabpanel" aria-labelledby="tab-dvp" hidden>
+      <h2>Defense vs position</h2>
+      <p class="lede">Fantasy points each defense gives up per game to every position. Orange cells are defenses to target; blue cells are defenses to avoid. Select a cell to see every player who faced them.</p>
+      <div class="toolbar">
+        <label class="field-ctl">Season <select id="dvp-season"></select></label>
+        <label class="field-ctl">From week <select id="dvp-from"></select></label>
+        <label class="field-ctl">To week <select id="dvp-to"></select></label>
+      </div>
+      <div class="legend"><span>Tougher</span><span class="ramp" aria-hidden="true"></span><span>Easier than league average</span></div>
+      <div class="layout-dvp">
+        <div class="scroll"><table class="heat" id="dvp-table"></table></div>
+        <div class="detail" id="dvp-detail" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- Game log -->
+    <section id="log" role="tabpanel" aria-labelledby="tab-log" hidden>
+      <h2>Game log</h2>
+      <p class="lede">Every QB, RB, WR, and TE game. Combine filters to answer questions like “how have tight ends done against Kansas City at home?”</p>
+      <div class="toolbar">
+        <label class="field-ctl">Season <select id="log-season"></select></label>
+        <label class="field-ctl">Position <select id="log-pos">
+          <option value="">All</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option></select></label>
+        <label class="field-ctl">Against <select id="log-opp"></select></label>
+        <label class="field-ctl">Player's team <select id="log-team"></select></label>
+        <label class="field-ctl">Home or away <select id="log-ha">
+          <option value="">Both</option><option value="1">Home</option><option value="0">Away</option></select></label>
+        <label class="field-ctl">From week <select id="log-from"></select></label>
+        <label class="field-ctl">To week <select id="log-to"></select></label>
+        <label class="field-ctl">Min points <input type="number" id="log-min" min="0" step="1" inputmode="decimal"></label>
+        <label class="field-ctl">Player <input type="search" id="log-q" placeholder="Search by name"></label>
+        <button class="btn" id="log-reset">Clear filters</button>
+      </div>
+      <p class="summary" id="log-summary"></p>
+      <div class="scroll"><table id="log-table"></table></div>
+      <div class="more"><button class="btn" id="log-more" hidden>Show 100 more</button></div>
+    </section>
+  </main>
+</div>
+
+<script>
+"use strict";
+const POS = ["QB", "RB", "WR", "TE"];
+const FMT_NAME = { std: "standard", half: "half PPR", ppr: "PPR" };
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ordinal = (n) => { const s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
+const f1 = (x) => (Math.round(x * 10) / 10).toFixed(1);
+
+function store(key, val) {
+  try { if (val === undefined) return localStorage.getItem(key); localStorage.setItem(key, val); } catch (e) { return null; }
+}
+
+let D = null, ROWS = [];
+const state = {
+  fmt: store("fmt") || "ppr",
+  tab: "picks",
+  pickPos: "RB", pickCount: 10,
+  dvp: { season: null, from: 1, to: 18, sortPos: null, sortDir: -1, sel: null },
+  log: { season: null, pos: "", opp: "", team: "", ha: "", from: 1, to: 18, min: "", q: "", sort: "pts", dir: -1, limit: 100 },
+};
+
+/* ---------- Loading ---------- */
+async function load() {
+  try {
+    const res = await fetch("data.json", { cache: "no-cache" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    init(await res.json());
+  } catch (e) {
+    $("status").textContent = "Stats not loaded";
+    $("banner").innerHTML = `<div class="banner"><p style="margin:0 0 8px">Couldn't load <strong>data.json</strong> from this folder. If you opened this file straight from your computer, your browser blocks that. Choose the file here instead, or run it from a local server (see the README).</p>
+      <input type="file" id="file" accept=".json,application/json"></div>`;
+    $("file").addEventListener("change", async (ev) => {
+      const file = ev.target.files[0];
+      if (!file) return;
+      try { init(JSON.parse(await file.text())); $("banner").innerHTML = ""; }
+      catch (err) { alert("That file isn't a valid data.json: " + err.message); }
+    });
+  }
+}
+
+function init(data) {
+  D = data;
+  const c = D.cols;
+  ROWS = D.rows.map((r) => {
+    const o = {};
+    c.forEach((k, i) => (o[k] = r[i]));
+    const p = D.players[o.p];
+    o.id = p[0]; o.name = p[1]; o.pos = p[2];
+    return o;
+  });
+  const m = D.meta;
+  const updated = new Date(m.updated);
+  const weekTxt = m.latest_stats_week ? `stats through week ${m.latest_stats_week}` : "no games yet this season";
+  $("status").textContent = `${m.season} season, ${weekTxt}. Updated ${updated.toLocaleDateString(undefined, { month: "short", day: "numeric" })}.`;
+  if (m.sample) {
+    $("banner").innerHTML = `<div class="banner"><strong>Sample data.</strong> These are made-up players so you can try the page. Real stats replace them the first time the update runs.</div>`;
+  }
+  const seasons = m.seasons.slice().reverse();
+  state.dvp.season = state.log.season = m.season;
+  if (!seasons.includes(m.season)) state.dvp.season = state.log.season = seasons[0];
+  for (const id of ["dvp-season", "log-season"]) $(id).innerHTML = seasons.map((s) => `<option>${s}</option>`).join("");
+  $("dvp-season").value = $("log-season").value = state.dvp.season;
+  setWeekRange("dvp"); setWeekRange("log");
+  fillTeams();
+  wire();
+  renderAll();
+}
+
+function weeksIn(season) {
+  return [...new Set(ROWS.filter((r) => r.s === season).map((r) => r.wk))].sort((a, b) => a - b);
+}
+function setWeekRange(which) {
+  const st = state[which];
+  const wks = weeksIn(+st.season);
+  const opts = wks.map((w) => `<option value="${w}">${w}</option>`).join("");
+  $(which + "-from").innerHTML = opts; $(which + "-to").innerHTML = opts;
+  st.from = wks[0] || 1; st.to = wks[wks.length - 1] || 18;
+  $(which + "-from").value = st.from; $(which + "-to").value = st.to;
+}
+function fillTeams() {
+  const teams = [...new Set(ROWS.filter((r) => r.s === +state.log.season).flatMap((r) => [r.tm, r.opp]))].filter(Boolean).sort();
+  const opts = `<option value="">Any</option>` + teams.map((t) => `<option>${esc(t)}</option>`).join("");
+  $("log-opp").innerHTML = opts; $("log-team").innerHTML = opts;
+  $("log-opp").value = state.log.opp; $("log-team").value = state.log.team;
+}
+
+/* ---------- Events ---------- */
+function wire() {
+  document.querySelectorAll("#fmt-seg button").forEach((b) => b.addEventListener("click", () => {
+    state.fmt = b.dataset.fmt; store("fmt", state.fmt); renderAll();
+  }));
+  document.querySelectorAll("nav.tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
+  document.querySelector("nav.tabs").addEventListener("keydown", (e) => {
+    if (!["ArrowLeft", "ArrowRight"].includes(e.key)) return;
+    const tabs = [...document.querySelectorAll("nav.tabs button")];
+    const i = tabs.findIndex((t) => t.dataset.tab === state.tab);
+    const next = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+    showTab(next.dataset.tab); next.focus();
+  });
+
+  $("pick-pos").innerHTML = POS.map((p) => `<button data-pos="${p}">${p}</button>`).join("");
+  $("pick-pos").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    state.pickPos = b.dataset.pos; renderPicks();
+  });
+  $("pick-more").addEventListener("click", () => { state.pickCount = state.pickCount === 10 ? 25 : 10; renderPicks(); });
+
+  $("dvp-season").addEventListener("change", (e) => { state.dvp.season = +e.target.value; state.dvp.sel = null; setWeekRange("dvp"); renderDvp(); });
+  $("dvp-from").addEventListener("change", (e) => { state.dvp.from = +e.target.value; if (state.dvp.to < state.dvp.from) { state.dvp.to = state.dvp.from; $("dvp-to").value = state.dvp.to; } renderDvp(); });
+  $("dvp-to").addEventListener("change", (e) => { state.dvp.to = +e.target.value; if (state.dvp.from > state.dvp.to) { state.dvp.from = state.dvp.to; $("dvp-from").value = state.dvp.from; } renderDvp(); });
+
+  const L = state.log;
+  $("log-season").addEventListener("change", (e) => { L.season = +e.target.value; setWeekRange("log"); fillTeams(); L.limit = 100; renderLog(); });
+  for (const [id, key] of [["log-pos", "pos"], ["log-opp", "opp"], ["log-team", "team"], ["log-ha", "ha"]]) {
+    $(id).addEventListener("change", (e) => { L[key] = e.target.value; L.limit = 100; renderLog(); });
+  }
+  $("log-from").addEventListener("change", (e) => { L.from = +e.target.value; L.limit = 100; renderLog(); });
+  $("log-to").addEventListener("change", (e) => { L.to = +e.target.value; L.limit = 100; renderLog(); });
+  $("log-min").addEventListener("input", (e) => { L.min = e.target.value; L.limit = 100; renderLog(); });
+  $("log-q").addEventListener("input", (e) => { L.q = e.target.value; L.limit = 100; renderLog(); });
+  $("log-more").addEventListener("click", () => { L.limit += 100; renderLog(); });
+  $("log-reset").addEventListener("click", () => {
+    Object.assign(L, { pos: "", opp: "", team: "", ha: "", min: "", q: "", limit: 100 });
+    for (const id of ["log-pos", "log-opp", "log-team", "log-ha", "log-min", "log-q"]) $(id).value = "";
+    setWeekRange("log"); renderLog();
+  });
+}
+
+function showTab(tab) {
+  state.tab = tab;
+  document.querySelectorAll("nav.tabs button").forEach((b) => {
+    const on = b.dataset.tab === tab;
+    b.setAttribute("aria-selected", on); b.tabIndex = on ? 0 : -1;
+  });
+  document.querySelectorAll("main section").forEach((s) => (s.hidden = s.id !== tab));
+}
+
+function renderAll() {
+  document.querySelectorAll("#fmt-seg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.fmt === state.fmt));
+  showTab(state.tab);
+  renderPicks(); renderDvp(); renderLog();
+}
+
+/* ---------- Helpers ---------- */
+function statLine(r) {
+  const parts = [];
+  if (r.pos === "QB") {
+    parts.push(`${r.pyd} pass yds, ${r.ptd} TD, ${r.int} INT`);
+    if (r.car) parts.push(`${r.ryd} rush yds${r.rtd ? `, ${r.rtd} rush TD` : ""}`);
+  } else if (r.pos === "RB") {
+    parts.push(`${r.car} car, ${r.ryd} yds`);
+    parts.push(`${r.rec}/${r.tgt} rec, ${r.reyd} yds`);
+    const td = r.rtd + r.retd; if (td) parts.push(`${td} TD`);
+  } else {
+    parts.push(`${r.rec}/${r.tgt} rec, ${r.reyd} yds`);
+    if (r.retd) parts.push(`${r.retd} TD`);
+    if (r.car) parts.push(`${r.ryd} rush yds`);
+  }
+  return parts.join("; ");
+}
+const gameTxt = (tm, opp, home) => home === 1 || home === true ? `${tm} vs ${opp}` : home === 0 || home === false ? `${tm} at ${opp}` : `${tm} v ${opp}`;
+
+/* ---------- Picks ---------- */
+function renderPicks() {
+  document.querySelectorAll("#pick-pos button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.pos === state.pickPos));
+  const P = D.projections || {};
+  const wk = P.week;
+  $("tab-picks").textContent = wk ? `Week ${wk} top 10` : "Top 10";
+  $("picks-title").textContent = wk ? `Week ${wk} projected top 10` : "Projected top 10";
+  const list = $("pick-list"), more = $("pick-more");
+  if (P.status !== "ok") {
+    $("picks-lede").textContent = "";
+    list.innerHTML = `<li class="empty" style="display:block">${P.status === "season_over"
+      ? "The regular season is over, so there's no upcoming week to project. The defense and game log tabs still work."
+      : "Projections start once this season's first week of games has been played."}</li>`;
+    more.hidden = true; return;
+  }
+  const pos = state.pickPos;
+  const all = (P.players[pos] && P.players[pos][state.fmt]) || [];
+  $("picks-lede").textContent = `Best projected ${pos}s for week ${wk} in ${FMT_NAME[state.fmt]} scoring, ranked by expected fantasy points.`;
+  const shown = all.slice(0, state.pickCount);
+  const top = all.length ? all[0].proj : 1;
+  list.innerHTML = shown.map((e, i) => {
+    const chips = [];
+    chips.push(`<span class="chip" title="Recent points per game, weighted toward the latest games">Form ${f1(e.base)}</span>`);
+    if (e.dr) {
+      const pct = Math.round((e.allow - 1) * 100);
+      const cls = pct >= 8 ? "good" : pct <= -8 ? "bad" : "";
+      const desc = e.dr <= e.dteams / 2 ? `${ordinal(e.dr)} most to ${pos}s` : `${ordinal(e.dteams - e.dr + 1)} fewest to ${pos}s`;
+      chips.push(`<span class="chip ${cls}" title="${esc(e.opp)} allows ${pct >= 0 ? pct + "% more" : -pct + "% fewer"} points to ${pos}s than average">${esc(e.opp)} allows ${desc}</span>`);
+    }
+    if (e.imp != null) chips.push(`<span class="chip ${e.env >= 1.05 ? "good" : e.env <= 0.95 ? "bad" : ""}" title="Team's Vegas implied points this week">Team total ${f1(e.imp)}</span>`);
+    if (e.use >= 1.03) chips.push(`<span class="chip good" title="Targets and carries over the last 3 games vs season average">Usage rising</span>`);
+    if (e.use <= 0.97) chips.push(`<span class="chip bad" title="Targets and carries over the last 3 games vs season average">Usage falling</span>`);
+    if (e.gp < 3) chips.push(`<span class="chip warn">Only ${e.gp} game${e.gp === 1 ? "" : "s"} this season</span>`);
+    if (e.missed) chips.push(`<span class="chip warn">Missed last game, check injury news</span>`);
+    if (e.played) chips.push(`<span class="chip">Already played: ${e.actual != null ? f1(e.actual) + " pts" : "no stats"}</span>`);
+    return `<li>
+      <span class="rank">${i + 1}</span>
+      <div class="who"><div class="name">${esc(e.name)}</div><div class="game">${esc(gameTxt(e.tm, e.opp, e.home))}</div></div>
+      <div class="pts"><strong>${f1(e.proj)}</strong><span>proj. pts</span></div>
+      <div class="bar" aria-hidden="true"><i style="width:${Math.max(4, (e.proj / top) * 100)}%"></i></div>
+      <div class="chips">${chips.join("")}</div>
+    </li>`;
+  }).join("") || `<li class="empty" style="display:block">No ${pos}s to project this week.</li>`;
+  more.hidden = all.length <= 10;
+  more.textContent = state.pickCount === 10 ? `Show top ${all.length}` : "Show top 10";
+}
+
+/* ---------- Defense vs position ---------- */
+function computeDvp(season, from, to, fmt) {
+  const rows = ROWS.filter((r) => r.s === season && r.wk >= from && r.wk <= to && r.opp);
+  const gameSum = new Map(); // opp|wk|pos -> points
+  for (const r of rows) {
+    const k = `${r.opp}|${r.wk}|${r.pos}`;
+    gameSum.set(k, (gameSum.get(k) || 0) + r[fmt]);
+  }
+  const agg = {}, league = {};
+  for (const [k, v] of gameSum) {
+    const [opp, , pos] = k.split("|");
+    agg[opp] ??= {}; agg[opp][pos] ??= { tot: 0, g: 0 };
+    agg[opp][pos].tot += v; agg[opp][pos].g += 1;
+    league[pos] ??= { tot: 0, g: 0 }; league[pos].tot += v; league[pos].g += 1;
+  }
+  const teams = Object.keys(agg).sort();
+  const out = { teams, league: {}, cells: {} };
+  for (const pos of POS) {
+    const L = league[pos]; out.league[pos] = L ? L.tot / L.g : 0;
+    const list = teams.filter((t) => agg[t][pos]).map((t) => ({ t, avg: agg[t][pos].tot / agg[t][pos].g, g: agg[t][pos].g }));
+    list.sort((a, b) => b.avg - a.avg);
+    list.forEach((c, i) => { out.cells[`${c.t}|${pos}`] = { ...c, rank: i + 1, n: list.length, rel: out.league[pos] ? c.avg / out.league[pos] - 1 : 0 }; });
+  }
+  return { out, rows };
+}
+
+function heatColor(rel) {
+  const a = Math.min(Math.abs(rel) / 0.35, 1) * 55;
+  return `color-mix(in srgb, var(${rel >= 0 ? "--soft" : "--tough"}) ${a.toFixed(0)}%, var(--surface))`;
+}
+
+let dvpCache = null;
+function renderDvp() {
+  const S = state.dvp;
+  const { out, rows } = computeDvp(+S.season, S.from, S.to, state.fmt);
+  dvpCache = { out, rows };
+  let teams = out.teams.slice();
+  if (S.sortPos) {
+    teams.sort((a, b) => S.sortDir * (((out.cells[`${a}|${S.sortPos}`] || {}).avg ?? -1) - ((out.cells[`${b}|${S.sortPos}`] || {}).avg ?? -1)));
+  }
+  const head = `<thead><tr><th><button data-sort="">Defense</button></th>${POS.map((p) =>
+    `<th class="num"><button data-sort="${p}" data-active="${S.sortPos === p}" aria-label="Sort by points allowed to ${p}s">${p}${S.sortPos === p ? (S.sortDir < 0 ? " ▼" : " ▲") : ""}</button></th>`).join("")}</tr></thead>`;
+  const body = teams.map((t) => `<tr><td>${esc(t)}</td>${POS.map((p) => {
+    const c = out.cells[`${t}|${p}`];
+    if (!c) return `<td></td>`;
+    const sel = S.sel && S.sel.t === t && S.sel.pos === p;
+    return `<td><button class="cell" data-t="${esc(t)}" data-pos="${p}" aria-pressed="${!!sel}" style="background:${heatColor(c.rel)}"
+      aria-label="${esc(t)} allows ${f1(c.avg)} points per game to ${p}s, ${ordinal(c.rank)} most">
+      <small>${ordinal(c.rank)}</small><span>${f1(c.avg)}</span></button></td>`;
+  }).join("")}</tr>`).join("");
+  const table = $("dvp-table");
+  table.innerHTML = teams.length ? head + `<tbody>${body}</tbody>` : `<tbody><tr><td class="empty">No games in this range.</td></tr></tbody>`;
+  table.querySelectorAll("th button").forEach((b) => b.addEventListener("click", () => {
+    const p = b.dataset.sort || null;
+    if (S.sortPos === p && p) S.sortDir *= -1; else { S.sortPos = p; S.sortDir = -1; }
+    renderDvp();
+  }));
+  table.querySelectorAll(".cell").forEach((b) => b.addEventListener("click", () => {
+    S.sel = { t: b.dataset.t, pos: b.dataset.pos }; renderDvp();
+  }));
+  renderDvpDetail();
+}
+
+function renderDvpDetail() {
+  const S = state.dvp, el = $("dvp-detail");
+  const { out, rows } = dvpCache;
+  if (!S.sel || !out.cells[`${S.sel.t}|${S.sel.pos}`]) {
+    el.innerHTML = `<h3>Pick a matchup</h3><p class="sum">Select any number in the table to see each ${"player"} who faced that defense at that position, and how they scored.</p>`;
+    return;
+  }
+  const { t, pos } = S.sel, c = out.cells[`${t}|${pos}`], fmt = state.fmt;
+  const games = rows.filter((r) => r.opp === t && r.pos === pos).sort((a, b) => b[fmt] - a[fmt]);
+  const pct = Math.round(c.rel * 100);
+  el.innerHTML = `<h3>${pos}s against ${esc(t)}</h3>
+    <p class="sum">${f1(c.avg)} points per game allowed in weeks ${S.from}–${S.to} (${FMT_NAME[fmt]}), ${pct >= 0 ? pct + "% above" : -pct + "% below"} the league average of ${f1(out.league[pos])}. That's the ${ordinal(c.rank)} most out of ${c.n}.</p>
+    <div class="scroll"><table><thead><tr><th class="num">Wk</th><th>Player</th><th class="num">Pts</th><th>Stats</th></tr></thead><tbody>
+    ${games.map((r) => `<tr><td class="num">${r.wk}</td><td>${esc(r.name)} <span class="statline">${esc(r.tm)}</span></td><td class="num"><strong>${f1(r[fmt])}</strong></td><td class="statline">${esc(statLine(r))}</td></tr>`).join("")}
+    </tbody></table></div>
+    <p style="margin:12px 0 0"><button class="linkish" id="to-log">Open in game log</button></p>`;
+  $("to-log").addEventListener("click", () => {
+    const L = state.log;
+    Object.assign(L, { season: +S.season, pos, opp: t, team: "", ha: "", q: "", min: "", limit: 100 });
+    $("log-season").value = L.season; setWeekRange("log"); fillTeams();
+    L.from = S.from; L.to = S.to; $("log-from").value = L.from; $("log-to").value = L.to;
+    $("log-pos").value = pos; $("log-opp").value = t;
+    for (const id of ["log-team", "log-ha", "log-q", "log-min"]) $(id).value = "";
+    renderLog(); showTab("log"); $("tab-log").focus();
+  });
+}
+
+/* ---------- Game log ---------- */
+function renderLog() {
+  const L = state.log, fmt = state.fmt;
+  const q = L.q.trim().toLowerCase(), min = L.min === "" ? null : +L.min;
+  let rows = ROWS.filter((r) => r.s === +L.season && r.wk >= L.from && r.wk <= L.to
+    && (!L.pos || r.pos === L.pos) && (!L.opp || r.opp === L.opp) && (!L.team || r.tm === L.team)
+    && (L.ha === "" || r.home === +L.ha) && (min === null || r[fmt] >= min)
+    && (!q || r.name.toLowerCase().includes(q)));
+  const key = { pts: (r) => r[fmt], wk: (r) => r.wk, name: (r) => r.name, opp: (r) => r.opp };
+  const k = key[L.sort];
+  rows.sort((a, b) => { const x = k(a), y = k(b); return (x < y ? -1 : x > y ? 1 : 0) * L.dir || b[fmt] - a[fmt]; });
+  const avg = rows.length ? rows.reduce((s, r) => s + r[fmt], 0) / rows.length : 0;
+  const players = new Set(rows.map((r) => r.id)).size;
+  $("log-summary").textContent = rows.length
+    ? `${rows.length.toLocaleString()} games by ${players.toLocaleString()} players, averaging ${f1(avg)} points (${FMT_NAME[fmt]}).`
+    : "No games match these filters. Try widening the week range or clearing a filter.";
+  const th = (id, label, num) => `<th${num ? ' class="num"' : ""}><button data-sort="${id}" data-active="${L.sort === id}">${label}${L.sort === id ? (L.dir < 0 ? " ▼" : " ▲") : ""}</button></th>`;
+  const shown = rows.slice(0, L.limit);
+  $("log-table").innerHTML = `<thead><tr>${th("wk", "Wk", true)}${th("name", "Player")}<th>Pos</th>${th("opp", "Game")}${th("pts", "Pts", true)}<th>Stats</th></tr></thead>
+    <tbody>${shown.map((r) => `<tr><td class="num">${r.wk}</td><td>${esc(r.name)}</td><td>${r.pos}</td><td>${esc(gameTxt(r.tm, r.opp, r.home))}</td><td class="num"><strong>${f1(r[fmt])}</strong></td><td class="statline">${esc(statLine(r))}</td></tr>`).join("")}</tbody>`;
+  $("log-table").querySelectorAll("th button").forEach((b) => b.addEventListener("click", () => {
+    const id = b.dataset.sort;
+    if (L.sort === id) L.dir *= -1; else { L.sort = id; L.dir = id === "name" || id === "opp" ? 1 : -1; }
+    renderLog();
+  }));
+  $("log-more").hidden = rows.length <= L.limit;
+}
+
+load();
+</script>
+</body>
+</html>
