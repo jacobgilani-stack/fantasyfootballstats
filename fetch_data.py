@@ -583,12 +583,26 @@ def encode_rows(df, pindex):
     return rows
 
 
+def schedule_rows(sched_raw, seasons):
+    """Every regular-season game: [season, week, home, away, home_pts, away_pts, total, spread, date].
+    spread > 0 means the home team is favored by that many points."""
+    out = []
+    num = lambda v: None if pd.isna(v) else float(v)
+    pts = lambda v: None if pd.isna(v) else int(v)
+    for s_ in seasons:
+        sch = normalize_schedule(sched_raw, s_)
+        for g in sch.sort_values(["week", "gameday"]).itertuples(index=False):
+            out.append([int(s_), int(g.week), g.home_team, g.away_team, pts(g.home_score), pts(g.away_score),
+                        num(g.total_line), num(g.spread_line), str(g.gameday)])
+    return out
+
+
 def season_frame(stats_raw, sched_raw, season):
     df = normalize_stats(stats_raw, season)
     return attach_schedule(df, team_games(normalize_schedule(sched_raw, season)))
 
 
-def build_history(frames):
+def build_history(frames, sched_raw=None):
     """Compact all-seasons file: each week's top scorers, plus every player's season totals."""
     df = pd.concat([f for f in frames if not f.empty], ignore_index=True).sort_values(["s", "wk"])
     keep = set()
@@ -611,6 +625,7 @@ def build_history(frames):
         "rows": encode_rows(weekly, pindex),
         "season_cols": ["s", "p", "tm", "g", "std", "half", "ppr", "bstd", "bhalf", "bppr"],
         "season_rows": season_rows,
+        "games": schedule_rows(sched_raw, sorted(df["s"].unique().tolist())) if sched_raw is not None else [],
     }
 
 
@@ -697,6 +712,7 @@ def build(cur_raw, prev_raw, sched_raw, season, inj_raw=None, espn=None, sample=
         "rows": rows,
         "team_scores": team_scores,
         "upcoming": upcoming,
+        "schedule": schedule_rows(sched_raw, [season - 1, season]),
         "depth": {tm: {pos: [pindex[i] for i in ids if i in pindex] for pos, ids in d.items()} for tm, d in charts.items()},
         "injuries": {"week": inj_week, "current": inj_current, "list": injuries},
         "projections": projections,
@@ -738,7 +754,7 @@ def main():
         if raw is not None:
             frames.append(season_frame(raw, sched_raw, s_))
     hist_path = os.path.join(os.path.dirname(args.out) or ".", "history.json")
-    hist = build_history(frames)
+    hist = build_history(frames, sched_raw)
     dump(hist, hist_path)
     print(f"Wrote {hist_path}: seasons {hist['seasons'][0]}-{hist['seasons'][-1]}")
     m = data["meta"]
