@@ -157,6 +157,12 @@ tr.none td { color: var(--muted); }
 .badge.doubt { border-color: var(--warn); color: var(--warn); }
 .badge.q { border-color: color-mix(in srgb, var(--soft) 60%, transparent); background: color-mix(in srgb, var(--soft) 14%, var(--surface)); }
 .badge.old { color: var(--muted); }
+.lineup-total { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; }
+.lineup-total strong { font: 700 3rem/1 var(--cond); }
+.lineup-total span { color: var(--muted); }
+.depth .slot { font: 700 1.25rem/1 var(--cond); color: var(--muted); text-align: right; }
+.depth .slot.flex { color: var(--soft); }
+.missed h3 { font: 700 1.3rem/1.1 var(--cond); margin: 28px 0 8px; }
 .inj-team { padding: 14px 0; border-bottom: 1px solid var(--line); }
 .inj-team:first-child { border-top: 2px solid var(--ink); }
 .inj-team h3 { font: 700 1.4rem/1.1 var(--cond); margin: 0; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
@@ -202,6 +208,8 @@ tr.none td { color: var(--muted); }
       <button role="tab" id="tab-dvp" aria-controls="dvp" data-tab="dvp">Defense vs position</button>
       <button role="tab" id="tab-teams" aria-controls="teams" data-tab="teams">Team offense</button>
       <button role="tab" id="tab-injuries" aria-controls="injuries" data-tab="injuries">Injuries</button>
+      <button role="tab" id="tab-totw" aria-controls="totw" data-tab="totw">Team of the week</button>
+      <button role="tab" id="tab-tots" aria-controls="tots" data-tab="tots">Team of the season</button>
       <button role="tab" id="tab-log" aria-controls="log" data-tab="log">Game log</button>
     </nav>
   </div>
@@ -308,6 +316,28 @@ tr.none td { color: var(--muted); }
       <div id="inj-body"></div>
     </section>
 
+    <!-- Team of the week -->
+    <section id="totw" role="tabpanel" aria-labelledby="tab-totw" hidden>
+      <h2>Team of the week</h2>
+      <p class="lede">The highest-scoring lineup you could have started in a given week: QB, 2 RB, 2 WR, TE, and a FLEX (RB, WR, or TE).</p>
+      <div class="toolbar">
+        <label class="field-ctl">Season <select id="totw-season"></select></label>
+        <label class="field-ctl">Week <select id="totw-week"></select></label>
+      </div>
+      <div id="totw-body"></div>
+    </section>
+
+    <!-- Team of the season -->
+    <section id="tots" role="tabpanel" aria-labelledby="tab-tots" hidden>
+      <h2>Team of the season</h2>
+      <p class="lede">The best lineup by average points per game: QB, 2 RB, 2 WR, TE, and a FLEX (RB, WR, or TE). Set a minimum number of games so one big week doesn't make the team.</p>
+      <div class="toolbar">
+        <label class="field-ctl">Season <select id="tots-season"></select></label>
+        <label class="field-ctl">Minimum games <select id="tots-min"></select></label>
+      </div>
+      <div id="tots-body"></div>
+    </section>
+
     <!-- Game log -->
     <section id="log" role="tabpanel" aria-labelledby="tab-log" hidden>
       <h2>Game log</h2>
@@ -357,6 +387,8 @@ const state = {
   pickPos: "RB", pickCount: 10,
   dvp: { view: store("dvpView") || "pos", season: null, from: 1, to: 18, sortCol: null, sortDir: -1, sel: null },
   wv: { size: store("wvSize") || "12", pos: "" },
+  totw: { season: null, week: null },
+  tots: { season: null, min: null },
   tm: { season: null, from: 1, to: 18, sort: "pf", dir: -1, sel: null },
   inj: { view: "players", team: "", pos: "fantasy", status: "" },
   log: { season: null, pos: "", role: "", opp: "", team: "", ha: "", from: 1, to: 18, min: "", q: "", sort: "pts", dir: -1, limit: 100 },
@@ -406,6 +438,9 @@ function init(data) {
   for (const id of ["dvp-season", "log-season", "tm-season"]) $(id).innerHTML = seasons.map((s) => `<option>${s}</option>`).join("");
   $("dvp-season").value = $("log-season").value = $("tm-season").value = state.dvp.season;
   setWeekRange("dvp"); setWeekRange("log"); setWeekRange("tm");
+  state.totw.season = state.tots.season = state.dvp.season;
+  for (const id of ["totw-season", "tots-season"]) { $(id).innerHTML = seasons.map((s) => `<option>${s}</option>`).join(""); $(id).value = state.dvp.season; }
+  fillTotwWeeks(); fillTotsMin();
   fillTeams();
   wire();
   renderAll();
@@ -488,6 +523,10 @@ function wire() {
     const b = e.target.closest("button"); if (!b) return;
     state.wv.pos = b.dataset.pos; renderWaivers();
   });
+  $("totw-season").addEventListener("change", (e) => { state.totw.season = +e.target.value; fillTotwWeeks(); renderTotw(); });
+  $("totw-week").addEventListener("change", (e) => { state.totw.week = +e.target.value; renderTotw(); });
+  $("tots-season").addEventListener("change", (e) => { state.tots.season = +e.target.value; fillTotsMin(); renderTots(); });
+  $("tots-min").addEventListener("change", (e) => { state.tots.min = +e.target.value; renderTots(); });
   const T = state.tm;
   $("tm-season").addEventListener("change", (e) => { T.season = +e.target.value; setWeekRange("tm"); renderTeams(); });
   $("tm-from").addEventListener("change", (e) => { T.from = +e.target.value; if (T.to < T.from) { T.to = T.from; $("tm-to").value = T.to; } renderTeams(); });
@@ -552,7 +591,7 @@ function showTab(tab) {
 function renderAll() {
   document.querySelectorAll("#fmt-seg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.fmt === state.fmt));
   showTab(state.tab);
-  renderPicks(); renderWaivers(); renderDvp(); renderTeams(); renderInjuries(); renderLog();
+  renderPicks(); renderWaivers(); renderDvp(); renderTeams(); renderInjuries(); renderTotw(); renderTots(); renderLog();
 }
 
 /* ---------- Helpers ---------- */
@@ -892,6 +931,77 @@ function renderInjuries() {
       ${other.length ? `<p class="also">Also listed: ${other.slice(0, 8).map((e) => `${esc(e.name)} (${esc(e.pos)}${statusOf(e) ? ", " + esc(statusOf(e)) : ""})`).join("; ")}${other.length > 8 ? `; and ${other.length - 8} more` : ""}</p>` : ""}
     </div>`;
   }).join("");
+}
+
+/* ---------- Team of the week / season ---------- */
+const SLOTS = [["QB", ["QB"]], ["RB", ["RB"]], ["RB", ["RB"]], ["WR", ["WR"]], ["WR", ["WR"]], ["TE", ["TE"]], ["FLEX", ["RB", "WR", "TE"]]];
+function bestLineup(cands) {
+  // cands sorted best first; fill fixed slots first, then FLEX takes the best player left
+  const used = new Set();
+  const lineup = SLOTS.map(([label, ok]) => {
+    const c = cands.find((x) => !used.has(x.key) && ok.includes(x.pos));
+    if (c) used.add(c.key);
+    return { label, c };
+  });
+  return { lineup, rest: cands.filter((x) => !used.has(x.key)) };
+}
+function lineupHtml(lineup, valFn, valLabel, detailFn) {
+  const top = Math.max(...lineup.filter((l) => l.c).map((l) => valFn(l.c)), 1);
+  return `<ol class="depth">${lineup.map(({ label, c }) => c ? `<li>
+      <span class="slot${label === "FLEX" ? " flex" : ""}">${label}</span>
+      <div class="who"><div class="name">${esc(c.name)}${label === "FLEX" ? ` <span class="statline">${c.pos}</span>` : ""}</div><div class="game">${detailFn(c)}</div></div>
+      <div class="pts"><strong>${f1(valFn(c))}</strong><span>${valLabel}</span></div>
+      <div class="bar" aria-hidden="true"><i style="width:${Math.max(4, (valFn(c) / top) * 100)}%"></i></div>
+    </li>` : `<li><span class="slot">${label}</span><div class="who empty">Nobody qualifies</div><div></div></li>`).join("")}</ol>`;
+}
+
+function fillTotwWeeks() {
+  const S = state.totw, wks = weeksIn(+S.season);
+  const m = D.meta;
+  const done = +S.season === m.season && m.last_completed_week ? wks.filter((w) => w <= m.last_completed_week) : wks;
+  $("totw-week").innerHTML = wks.map((w) => `<option value="${w}">Week ${w}${done.includes(w) ? "" : " (in progress)"}</option>`).join("");
+  S.week = done.length ? done[done.length - 1] : wks[wks.length - 1];
+  if (S.week != null) $("totw-week").value = S.week;
+}
+function renderTotw() {
+  const S = state.totw, fmt = state.fmt, body = $("totw-body");
+  const rows = ROWS.filter((r) => r.s === +S.season && r.wk === S.week).map((r) => ({ ...r, key: r.id + "|" + r.wk })).sort((a, b) => b[fmt] - a[fmt]);
+  if (!rows.length) { body.innerHTML = `<p class="empty">No games for this week yet.</p>`; return; }
+  const { lineup, rest } = bestLineup(rows);
+  const total = lineup.reduce((a, l) => a + (l.c ? l.c[fmt] : 0), 0);
+  const inProgress = +S.season === D.meta.season && S.week > D.meta.last_completed_week;
+  const detail = (r) => `${esc(gameTxt(r.tm, r.opp, r.home))}: ${esc(statLine(r))}`;
+  body.innerHTML = `<p class="lineup-total"><strong>${f1(total)}</strong><span>total ${FMT_NAME[fmt]} points in week ${S.week}${inProgress ? " so far (not every game has been played)" : ""}</span></p>
+    ${lineupHtml(lineup, (r) => r[fmt], "pts", detail)}
+    <div class="missed"><h3>Just missed</h3>${lineupHtml(rest.slice(0, 5).map((c) => ({ label: c.pos, c })), (r) => r[fmt], "pts", detail)}</div>`;
+}
+
+function fillTotsMin() {
+  const S = state.tots, n = weeksIn(+S.season).length || 1;
+  const opts = [...new Set([1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16].filter((x) => x <= n).concat(n))].sort((a, b) => a - b);
+  $("tots-min").innerHTML = opts.map((x) => `<option value="${x}">${x} game${x === 1 ? "" : "s"}</option>`).join("");
+  const def = Math.max(1, Math.ceil(n / 2));
+  S.min = opts.filter((x) => x <= def).pop() || 1;
+  $("tots-min").value = S.min;
+}
+function renderTots() {
+  const S = state.tots, fmt = state.fmt, body = $("tots-body");
+  const agg = new Map();
+  for (const r of ROWS) {
+    if (r.s !== +S.season) continue;
+    const o = agg.get(r.id) || { key: r.id, id: r.id, name: r.name, pos: r.pos, tm: r.tm, g: 0, tot: 0, best: 0, lastWk: 0 };
+    o.g++; o.tot += r[fmt]; o.best = Math.max(o.best, r[fmt]);
+    if (r.wk >= o.lastWk) { o.lastWk = r.wk; o.tm = r.tm; }
+    agg.set(r.id, o);
+  }
+  const cands = [...agg.values()].filter((o) => o.g >= S.min).map((o) => ({ ...o, avg: o.tot / o.g })).sort((a, b) => b.avg - a.avg);
+  if (!cands.length) { body.innerHTML = `<p class="empty">No players have played ${S.min} games yet. Lower the minimum.</p>`; return; }
+  const { lineup, rest } = bestLineup(cands);
+  const total = lineup.reduce((a, l) => a + (l.c ? l.c.avg : 0), 0);
+  const detail = (o) => `${esc(o.tm)}: ${o.g} games, ${f1(o.tot)} total, best game ${f1(o.best)}`;
+  body.innerHTML = `<p class="lineup-total"><strong>${f1(total)}</strong><span>${FMT_NAME[fmt]} points per week this lineup averages in ${S.season}</span></p>
+    ${lineupHtml(lineup, (o) => o.avg, "pts/game", detail)}
+    <div class="missed"><h3>Just missed</h3>${lineupHtml(rest.slice(0, 5).map((c) => ({ label: c.pos, c })), (o) => o.avg, "pts/game", detail)}</div>`;
 }
 
 /* ---------- Game log ---------- */
