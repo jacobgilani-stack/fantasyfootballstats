@@ -122,7 +122,7 @@ details.method p, details.method li { color: var(--muted); max-width: 72ch; }
 /* Defense heat map */
 .legend { display: flex; align-items: center; gap: 10px; font-size: .85rem; color: var(--muted); margin-bottom: 12px; flex-wrap: wrap; }
 .ramp { width: 160px; height: 10px; border-radius: 5px; background: linear-gradient(90deg, var(--tough), var(--surface), var(--soft)); border: 1px solid var(--line); }
-.layout-dvp { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.layout-dvp { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 24px; align-items: start; }
 .scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 table { border-collapse: collapse; width: 100%; font-size: .93rem; }
 th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -132,7 +132,7 @@ th button[data-active="true"] { color: var(--ink); text-decoration: underline; t
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .heat td { padding: 3px; }
 .heat td:first-child { padding: 6px 10px; font-weight: 600; }
-.cell { width: 100%; border: 2px solid transparent; border-radius: 6px; padding: 5px 8px; cursor: pointer; text-align: right; font-variant-numeric: tabular-nums; display: flex; justify-content: space-between; gap: 8px; }
+.cell { width: 100%; border: 2px solid transparent; border-radius: 6px; padding: 5px 7px; cursor: pointer; text-align: right; font-variant-numeric: tabular-nums; display: flex; justify-content: space-between; gap: 8px; }
 .cell small { color: var(--muted); }
 .cell[aria-pressed="true"] { border-color: var(--ink); }
 .detail { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; position: sticky; top: 12px; }
@@ -142,6 +142,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .statline { color: var(--muted); font-size: .85rem; }
 td.statline { white-space: normal; min-width: 170px; }
 .summary { color: var(--muted); margin: 0 0 10px; }
+.role-note { color: var(--muted); font-size: .88rem; margin: -6px 0 14px; max-width: 72ch; }
+.toolbar .field-ctl .seg { margin-top: 0; }
+tr.none td { color: var(--muted); }
 .more { margin-top: 14px; }
 
 @media (max-width: 860px) {
@@ -212,12 +215,17 @@ td.statline { white-space: normal; min-width: 170px; }
     <!-- Defense vs position -->
     <section id="dvp" role="tabpanel" aria-labelledby="tab-dvp" hidden>
       <h2>Defense vs position</h2>
-      <p class="lede">Fantasy points each defense gives up per game to every position. Orange cells are defenses to target; blue cells are defenses to avoid. Select a cell to see every player who faced them.</p>
+      <p class="lede">Fantasy points each defense gives up per game, by position or by depth-chart role. Orange cells are defenses to target; blue cells are defenses to avoid. Select a cell to see the week-by-week results. To see a single week, set both week boxes to the same week.</p>
       <div class="toolbar">
+        <div class="field-ctl"><span id="dvp-view-label">Break down by</span>
+          <div class="seg" role="group" aria-labelledby="dvp-view-label" id="dvp-view">
+            <button data-view="pos">Position</button><button data-view="RB">RB1–RB4</button><button data-view="WR">WR1–WR6</button><button data-view="TE">TE1–TE4</button>
+          </div></div>
         <label class="field-ctl">Season <select id="dvp-season"></select></label>
         <label class="field-ctl">From week <select id="dvp-from"></select></label>
         <label class="field-ctl">To week <select id="dvp-to"></select></label>
       </div>
+      <p class="role-note" id="role-note" hidden>Roles are set each week by how much each player has been used by his team so far this season: targets for WRs and TEs, carries plus targets for RBs. So WR1 is the offense's top receiver, even in a quiet week. If a team had no WR5 that week, the defense allowed 0 to that role.</p>
       <div class="legend"><span>Tougher</span><span class="ramp" aria-hidden="true"></span><span>Easier than league average</span></div>
       <div class="layout-dvp">
         <div class="scroll"><table class="heat" id="dvp-table"></table></div>
@@ -233,6 +241,7 @@ td.statline { white-space: normal; min-width: 170px; }
         <label class="field-ctl">Season <select id="log-season"></select></label>
         <label class="field-ctl">Position <select id="log-pos">
           <option value="">All</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option></select></label>
+        <label class="field-ctl">Role <select id="log-role"></select></label>
         <label class="field-ctl">Against <select id="log-opp"></select></label>
         <label class="field-ctl">Player's team <select id="log-team"></select></label>
         <label class="field-ctl">Home or away <select id="log-ha">
@@ -254,6 +263,9 @@ td.statline { white-space: normal; min-width: 170px; }
 "use strict";
 const POS = ["QB", "RB", "WR", "TE"];
 const FMT_NAME = { std: "standard", half: "half PPR", ppr: "PPR" };
+const ROLE_MAX = { RB: 4, WR: 6, TE: 4 };
+const ROLE_COLS = Object.fromEntries(Object.entries(ROLE_MAX).map(([p, n]) => [p, Array.from({ length: n }, (_, i) => p + (i + 1))]));
+const ALL_ROLES = [...ROLE_COLS.RB, ...ROLE_COLS.WR, ...ROLE_COLS.TE];
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const ordinal = (n) => { const s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
@@ -268,8 +280,8 @@ const state = {
   fmt: store("fmt") || "ppr",
   tab: "picks",
   pickPos: "RB", pickCount: 10,
-  dvp: { season: null, from: 1, to: 18, sortPos: null, sortDir: -1, sel: null },
-  log: { season: null, pos: "", opp: "", team: "", ha: "", from: 1, to: 18, min: "", q: "", sort: "pts", dir: -1, limit: 100 },
+  dvp: { view: store("dvpView") || "pos", season: null, from: 1, to: 18, sortCol: null, sortDir: -1, sel: null },
+  log: { season: null, pos: "", role: "", opp: "", team: "", ha: "", from: 1, to: 18, min: "", q: "", sort: "pts", dir: -1, limit: 100 },
 };
 
 /* ---------- Loading ---------- */
@@ -301,6 +313,7 @@ function init(data) {
     o.id = p[0]; o.name = p[1]; o.pos = p[2];
     return o;
   });
+  assignRoles();
   const m = D.meta;
   const updated = new Date(m.updated);
   const weekTxt = m.latest_stats_week ? `stats through week ${m.latest_stats_week}` : "no games yet this season";
@@ -318,6 +331,36 @@ function init(data) {
   wire();
   renderAll();
 }
+
+/* Depth-chart roles: each week, rank a team's players at a position by
+   season-to-date usage (WR/TE: targets, RB: carries + targets) with that team. */
+const usage = (r) => (r.pos === "RB" ? r.car + r.tgt : r.tgt);
+function assignRoles() {
+  const groups = new Map();
+  for (const r of ROWS) {
+    r.role = null;
+    if (!ROLE_MAX[r.pos]) continue;
+    const k = `${r.s}|${r.tm}|${r.pos}`;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(r);
+  }
+  for (const rows of groups.values()) {
+    rows.sort((a, b) => a.wk - b.wk);
+    const cum = new Map();
+    for (let i = 0; i < rows.length;) {
+      const wk = rows[i].wk, week = [];
+      while (i < rows.length && rows[i].wk === wk) week.push(rows[i++]);
+      for (const r of week) cum.set(r.id, (cum.get(r.id) || 0) + usage(r));
+      week.sort((a, b) => (cum.get(b.id) - cum.get(a.id)) || (usage(b) - usage(a)) || (b.ppr - a.ppr));
+      week.forEach((r, j) => { r.role = j < ROLE_MAX[r.pos] ? r.pos + (j + 1) : null; });
+    }
+  }
+  // Latest role per player this season, for the picks list
+  LATEST_ROLE = new Map();
+  const season = D.meta.season;
+  for (const r of ROWS.filter((x) => x.s === season).sort((a, b) => a.wk - b.wk)) LATEST_ROLE.set(r.id, r.role);
+}
+let LATEST_ROLE = new Map();
 
 function weeksIn(season) {
   return [...new Set(ROWS.filter((r) => r.s === season).map((r) => r.wk))].sort((a, b) => a - b);
@@ -358,6 +401,18 @@ function wire() {
   });
   $("pick-more").addEventListener("click", () => { state.pickCount = state.pickCount === 10 ? 25 : 10; renderPicks(); });
 
+  $("dvp-view").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    const S = state.dvp;
+    S.view = b.dataset.view; store("dvpView", S.view); S.sortCol = null; S.sel = null; renderDvp();
+  });
+  $("log-role").innerHTML = `<option value="">Any</option>` + ["RB", "WR", "TE"].map((p) =>
+    `<optgroup label="${p}">${ROLE_COLS[p].map((r) => `<option>${r}</option>`).join("")}</optgroup>`).join("");
+  $("log-role").addEventListener("change", (e) => {
+    const L = state.log; L.role = e.target.value; L.limit = 100;
+    if (L.role && L.pos !== L.role.slice(0, 2)) { L.pos = L.role.slice(0, 2); $("log-pos").value = L.pos; }
+    renderLog();
+  });
   $("dvp-season").addEventListener("change", (e) => { state.dvp.season = +e.target.value; state.dvp.sel = null; setWeekRange("dvp"); renderDvp(); });
   $("dvp-from").addEventListener("change", (e) => { state.dvp.from = +e.target.value; if (state.dvp.to < state.dvp.from) { state.dvp.to = state.dvp.from; $("dvp-to").value = state.dvp.to; } renderDvp(); });
   $("dvp-to").addEventListener("change", (e) => { state.dvp.to = +e.target.value; if (state.dvp.from > state.dvp.to) { state.dvp.from = state.dvp.to; $("dvp-from").value = state.dvp.from; } renderDvp(); });
@@ -365,7 +420,11 @@ function wire() {
   const L = state.log;
   $("log-season").addEventListener("change", (e) => { L.season = +e.target.value; setWeekRange("log"); fillTeams(); L.limit = 100; renderLog(); });
   for (const [id, key] of [["log-pos", "pos"], ["log-opp", "opp"], ["log-team", "team"], ["log-ha", "ha"]]) {
-    $(id).addEventListener("change", (e) => { L[key] = e.target.value; L.limit = 100; renderLog(); });
+    $(id).addEventListener("change", (e) => {
+      L[key] = e.target.value; L.limit = 100;
+      if (key === "pos" && L.role && L.role.slice(0, 2) !== L.pos) { L.role = ""; $("log-role").value = ""; }
+      renderLog();
+    });
   }
   $("log-from").addEventListener("change", (e) => { L.from = +e.target.value; L.limit = 100; renderLog(); });
   $("log-to").addEventListener("change", (e) => { L.to = +e.target.value; L.limit = 100; renderLog(); });
@@ -373,8 +432,8 @@ function wire() {
   $("log-q").addEventListener("input", (e) => { L.q = e.target.value; L.limit = 100; renderLog(); });
   $("log-more").addEventListener("click", () => { L.limit += 100; renderLog(); });
   $("log-reset").addEventListener("click", () => {
-    Object.assign(L, { pos: "", opp: "", team: "", ha: "", min: "", q: "", limit: 100 });
-    for (const id of ["log-pos", "log-opp", "log-team", "log-ha", "log-min", "log-q"]) $(id).value = "";
+    Object.assign(L, { pos: "", role: "", opp: "", team: "", ha: "", min: "", q: "", limit: 100 });
+    for (const id of ["log-pos", "log-role", "log-opp", "log-team", "log-ha", "log-min", "log-q"]) $(id).value = "";
     setWeekRange("log"); renderLog();
   });
 }
@@ -450,7 +509,7 @@ function renderPicks() {
     if (e.played) chips.push(`<span class="chip">Already played: ${e.actual != null ? f1(e.actual) + " pts" : "no stats"}</span>`);
     return `<li>
       <span class="rank">${i + 1}</span>
-      <div class="who"><div class="name">${esc(e.name)}</div><div class="game">${esc(gameTxt(e.tm, e.opp, e.home))}</div></div>
+      <div class="who"><div class="name">${esc(e.name)}</div><div class="game">${LATEST_ROLE.get(e.id) ? LATEST_ROLE.get(e.id) + ", " : ""}${esc(gameTxt(e.tm, e.opp, e.home))}</div></div>
       <div class="pts"><strong>${f1(e.proj)}</strong><span>proj. pts</span></div>
       <div class="bar" aria-hidden="true"><i style="width:${Math.max(4, (e.proj / top) * 100)}%"></i></div>
       <div class="chips">${chips.join("")}</div>
@@ -461,29 +520,30 @@ function renderPicks() {
 }
 
 /* ---------- Defense vs position ---------- */
-function computeDvp(season, from, to, fmt) {
+const dvpCols = (view) => (view === "pos" ? POS : ROLE_COLS[view]);
+function computeDvp(season, from, to, fmt, view) {
   const rows = ROWS.filter((r) => r.s === season && r.wk >= from && r.wk <= to && r.opp);
-  const gameSum = new Map(); // opp|wk|pos -> points
+  const cols = dvpCols(view);
+  const keyOf = view === "pos" ? (r) => r.pos : (r) => (r.pos === view ? r.role : null);
+  const defWeeks = {}, tot = {};
   for (const r of rows) {
-    const k = `${r.opp}|${r.wk}|${r.pos}`;
-    gameSum.set(k, (gameSum.get(k) || 0) + r[fmt]);
+    (defWeeks[r.opp] ??= new Set()).add(r.wk);
+    const c = keyOf(r); if (!c) continue;
+    tot[r.opp] ??= {}; tot[r.opp][c] = (tot[r.opp][c] || 0) + r[fmt];
   }
-  const agg = {}, league = {};
-  for (const [k, v] of gameSum) {
-    const [opp, , pos] = k.split("|");
-    agg[opp] ??= {}; agg[opp][pos] ??= { tot: 0, g: 0 };
-    agg[opp][pos].tot += v; agg[opp][pos].g += 1;
-    league[pos] ??= { tot: 0, g: 0 }; league[pos].tot += v; league[pos].g += 1;
+  const teams = Object.keys(defWeeks).sort();
+  const out = { teams, cols, league: {}, cells: {}, defWeeks };
+  for (const c of cols) {
+    let T = 0, G = 0;
+    const list = teams.map((t) => {
+      const g = defWeeks[t].size, v = (tot[t] && tot[t][c]) || 0;
+      T += v; G += g; return { t, avg: v / g, g };
+    });
+    out.league[c] = G ? T / G : 0;
+    list.sort((x, y) => y.avg - x.avg);
+    list.forEach((x, i) => { out.cells[`${x.t}|${c}`] = { ...x, rank: i + 1, n: list.length, rel: out.league[c] ? x.avg / out.league[c] - 1 : 0 }; });
   }
-  const teams = Object.keys(agg).sort();
-  const out = { teams, league: {}, cells: {} };
-  for (const pos of POS) {
-    const L = league[pos]; out.league[pos] = L ? L.tot / L.g : 0;
-    const list = teams.filter((t) => agg[t][pos]).map((t) => ({ t, avg: agg[t][pos].tot / agg[t][pos].g, g: agg[t][pos].g }));
-    list.sort((a, b) => b.avg - a.avg);
-    list.forEach((c, i) => { out.cells[`${c.t}|${pos}`] = { ...c, rank: i + 1, n: list.length, rel: out.league[pos] ? c.avg / out.league[pos] - 1 : 0 }; });
-  }
-  return { out, rows };
+  return { out, rows, keyOf };
 }
 
 function heatColor(rel) {
@@ -494,57 +554,66 @@ function heatColor(rel) {
 let dvpCache = null;
 function renderDvp() {
   const S = state.dvp;
-  const { out, rows } = computeDvp(+S.season, S.from, S.to, state.fmt);
-  dvpCache = { out, rows };
-  let teams = out.teams.slice();
-  if (S.sortPos) {
-    teams.sort((a, b) => S.sortDir * (((out.cells[`${a}|${S.sortPos}`] || {}).avg ?? -1) - ((out.cells[`${b}|${S.sortPos}`] || {}).avg ?? -1)));
+  document.querySelectorAll("#dvp-view button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.view === S.view));
+  $("role-note").hidden = S.view === "pos";
+  const res = computeDvp(+S.season, S.from, S.to, state.fmt, S.view);
+  dvpCache = res;
+  const { out } = res, cols = out.cols;
+  const teams = out.teams.slice();
+  if (S.sortCol) {
+    teams.sort((a, b) => S.sortDir * (((out.cells[`${a}|${S.sortCol}`] || {}).avg ?? -1) - ((out.cells[`${b}|${S.sortCol}`] || {}).avg ?? -1)));
   }
-  const head = `<thead><tr><th><button data-sort="">Defense</button></th>${POS.map((p) =>
-    `<th class="num"><button data-sort="${p}" data-active="${S.sortPos === p}" aria-label="Sort by points allowed to ${p}s">${p}${S.sortPos === p ? (S.sortDir < 0 ? " ▼" : " ▲") : ""}</button></th>`).join("")}</tr></thead>`;
-  const body = teams.map((t) => `<tr><td>${esc(t)}</td>${POS.map((p) => {
-    const c = out.cells[`${t}|${p}`];
-    if (!c) return `<td></td>`;
-    const sel = S.sel && S.sel.t === t && S.sel.pos === p;
-    return `<td><button class="cell" data-t="${esc(t)}" data-pos="${p}" aria-pressed="${!!sel}" style="background:${heatColor(c.rel)}"
-      aria-label="${esc(t)} allows ${f1(c.avg)} points per game to ${p}s, ${ordinal(c.rank)} most">
-      <small>${ordinal(c.rank)}</small><span>${f1(c.avg)}</span></button></td>`;
+  const head = `<thead><tr><th><button data-sort="">Defense</button></th>${cols.map((c) =>
+    `<th class="num"><button data-sort="${c}" data-active="${S.sortCol === c}" aria-label="Sort by points allowed to ${c}s">${c}${S.sortCol === c ? (S.sortDir < 0 ? " ▼" : " ▲") : ""}</button></th>`).join("")}</tr></thead>`;
+  const body = teams.map((t) => `<tr><td>${esc(t)}</td>${cols.map((c) => {
+    const x = out.cells[`${t}|${c}`];
+    if (!x) return `<td></td>`;
+    const sel = S.sel && S.sel.t === t && S.sel.col === c;
+    return `<td><button class="cell" data-t="${esc(t)}" data-col="${c}" aria-pressed="${!!sel}" style="background:${heatColor(x.rel)}"
+      aria-label="${esc(t)} allows ${f1(x.avg)} points per game to ${c}s, ${ordinal(x.rank)} most">
+      <small>${ordinal(x.rank)}</small><span>${f1(x.avg)}</span></button></td>`;
   }).join("")}</tr>`).join("");
   const table = $("dvp-table");
   table.innerHTML = teams.length ? head + `<tbody>${body}</tbody>` : `<tbody><tr><td class="empty">No games in this range.</td></tr></tbody>`;
   table.querySelectorAll("th button").forEach((b) => b.addEventListener("click", () => {
-    const p = b.dataset.sort || null;
-    if (S.sortPos === p && p) S.sortDir *= -1; else { S.sortPos = p; S.sortDir = -1; }
+    const c = b.dataset.sort || null;
+    if (S.sortCol === c && c) S.sortDir *= -1; else { S.sortCol = c; S.sortDir = -1; }
     renderDvp();
   }));
   table.querySelectorAll(".cell").forEach((b) => b.addEventListener("click", () => {
-    S.sel = { t: b.dataset.t, pos: b.dataset.pos }; renderDvp();
+    S.sel = { t: b.dataset.t, col: b.dataset.col }; renderDvp();
   }));
   renderDvpDetail();
 }
 
 function renderDvpDetail() {
   const S = state.dvp, el = $("dvp-detail");
-  const { out, rows } = dvpCache;
-  if (!S.sel || !out.cells[`${S.sel.t}|${S.sel.pos}`]) {
-    el.innerHTML = `<h3>Pick a matchup</h3><p class="sum">Select any number in the table to see each ${"player"} who faced that defense at that position, and how they scored.</p>`;
+  const { out, rows, keyOf } = dvpCache;
+  if (!S.sel || !out.cells[`${S.sel.t}|${S.sel.col}`]) {
+    el.innerHTML = `<h3>Pick a matchup</h3><p class="sum">Select any number in the table to see, week by week, who faced that defense and how they scored.</p>`;
     return;
   }
-  const { t, pos } = S.sel, c = out.cells[`${t}|${pos}`], fmt = state.fmt;
-  const games = rows.filter((r) => r.opp === t && r.pos === pos).sort((a, b) => b[fmt] - a[fmt]);
-  const pct = Math.round(c.rel * 100);
-  el.innerHTML = `<h3>${pos}s against ${esc(t)}</h3>
-    <p class="sum">${f1(c.avg)} points per game allowed in weeks ${S.from}–${S.to} (${FMT_NAME[fmt]}), ${pct >= 0 ? pct + "% above" : -pct + "% below"} the league average of ${f1(out.league[pos])}. That's the ${ordinal(c.rank)} most out of ${c.n}.</p>
-    <div class="scroll"><table><thead><tr><th class="num">Wk</th><th>Player</th><th class="num">Pts</th><th>Stats</th></tr></thead><tbody>
-    ${games.map((r) => `<tr><td class="num">${r.wk}</td><td>${esc(r.name)} <span class="statline">${esc(r.tm)}</span></td><td class="num"><strong>${f1(r[fmt])}</strong></td><td class="statline">${esc(statLine(r))}</td></tr>`).join("")}
-    </tbody></table></div>
+  const { t, col } = S.sel, x = out.cells[`${t}|${col}`], fmt = state.fmt;
+  const games = rows.filter((r) => r.opp === t && keyOf(r) === col);
+  const weeks = [...out.defWeeks[t]].sort((a, b) => a - b);
+  const pct = Math.round(x.rel * 100);
+  let body = "";
+  for (const w of weeks) {
+    const g = games.filter((r) => r.wk === w).sort((a, b) => b[fmt] - a[fmt]);
+    if (!g.length) { body += `<tr class="none"><td class="num">${w}</td><td>No ${col} that week</td><td class="num">0.0</td><td></td></tr>`; continue; }
+    body += g.map((r) => `<tr><td class="num">${r.wk}</td><td>${esc(r.name)} <span class="statline">${esc(r.tm)}${S.view === "pos" && r.role ? ", " + r.role : ""}</span></td><td class="num"><strong>${f1(r[fmt])}</strong></td><td class="statline">${esc(statLine(r))}</td></tr>`).join("");
+  }
+  el.innerHTML = `<h3>${col}s against ${esc(t)}</h3>
+    <p class="sum">${f1(x.avg)} points per game allowed in weeks ${S.from}–${S.to} (${FMT_NAME[fmt]}), ${pct >= 0 ? pct + "% above" : -pct + "% below"} the league average of ${f1(out.league[col])}. That's the ${ordinal(x.rank)} most out of ${x.n}.</p>
+    <div class="scroll"><table><thead><tr><th class="num">Wk</th><th>Player</th><th class="num">Pts</th><th>Stats</th></tr></thead><tbody>${body}</tbody></table></div>
     <p style="margin:12px 0 0"><button class="linkish" id="to-log">Open in game log</button></p>`;
   $("to-log").addEventListener("click", () => {
     const L = state.log;
-    Object.assign(L, { season: +S.season, pos, opp: t, team: "", ha: "", q: "", min: "", limit: 100 });
+    const pos = S.view === "pos" ? col : S.view, role = S.view === "pos" ? "" : col;
+    Object.assign(L, { season: +S.season, pos, role, opp: t, team: "", ha: "", q: "", min: "", limit: 100, sort: "wk", dir: 1 });
     $("log-season").value = L.season; setWeekRange("log"); fillTeams();
     L.from = S.from; L.to = S.to; $("log-from").value = L.from; $("log-to").value = L.to;
-    $("log-pos").value = pos; $("log-opp").value = t;
+    $("log-pos").value = pos; $("log-role").value = role; $("log-opp").value = t;
     for (const id of ["log-team", "log-ha", "log-q", "log-min"]) $(id).value = "";
     renderLog(); showTab("log"); $("tab-log").focus();
   });
@@ -555,7 +624,7 @@ function renderLog() {
   const L = state.log, fmt = state.fmt;
   const q = L.q.trim().toLowerCase(), min = L.min === "" ? null : +L.min;
   let rows = ROWS.filter((r) => r.s === +L.season && r.wk >= L.from && r.wk <= L.to
-    && (!L.pos || r.pos === L.pos) && (!L.opp || r.opp === L.opp) && (!L.team || r.tm === L.team)
+    && (!L.pos || r.pos === L.pos) && (!L.role || r.role === L.role) && (!L.opp || r.opp === L.opp) && (!L.team || r.tm === L.team)
     && (L.ha === "" || r.home === +L.ha) && (min === null || r[fmt] >= min)
     && (!q || r.name.toLowerCase().includes(q)));
   const key = { pts: (r) => r[fmt], wk: (r) => r.wk, name: (r) => r.name, opp: (r) => r.opp };
@@ -568,8 +637,8 @@ function renderLog() {
     : "No games match these filters. Try widening the week range or clearing a filter.";
   const th = (id, label, num) => `<th${num ? ' class="num"' : ""}><button data-sort="${id}" data-active="${L.sort === id}">${label}${L.sort === id ? (L.dir < 0 ? " ▼" : " ▲") : ""}</button></th>`;
   const shown = rows.slice(0, L.limit);
-  $("log-table").innerHTML = `<thead><tr>${th("wk", "Wk", true)}${th("name", "Player")}<th>Pos</th>${th("opp", "Game")}${th("pts", "Pts", true)}<th>Stats</th></tr></thead>
-    <tbody>${shown.map((r) => `<tr><td class="num">${r.wk}</td><td>${esc(r.name)}</td><td>${r.pos}</td><td>${esc(gameTxt(r.tm, r.opp, r.home))}</td><td class="num"><strong>${f1(r[fmt])}</strong></td><td class="statline">${esc(statLine(r))}</td></tr>`).join("")}</tbody>`;
+  $("log-table").innerHTML = `<thead><tr>${th("wk", "Wk", true)}${th("name", "Player")}<th>Pos</th><th>Role</th>${th("opp", "Game")}${th("pts", "Pts", true)}<th>Stats</th></tr></thead>
+    <tbody>${shown.map((r) => `<tr><td class="num">${r.wk}</td><td>${esc(r.name)}</td><td>${r.pos}</td><td>${r.role || ""}</td><td>${esc(gameTxt(r.tm, r.opp, r.home))}</td><td class="num"><strong>${f1(r[fmt])}</strong></td><td class="statline">${esc(statLine(r))}</td></tr>`).join("")}</tbody>`;
   $("log-table").querySelectorAll("th button").forEach((b) => b.addEventListener("click", () => {
     const id = b.dataset.sort;
     if (L.sort === id) L.dir *= -1; else { L.sort = id; L.dir = id === "name" || id === "opp" ? 1 : -1; }
