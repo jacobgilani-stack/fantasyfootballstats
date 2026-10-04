@@ -147,8 +147,25 @@ td.statline { white-space: normal; min-width: 170px; }
 tr.none td { color: var(--muted); }
 .more { margin-top: 14px; }
 
+.layout-teams { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.heat td.hv { font-variant-numeric: tabular-nums; text-align: right; border-left: 2px solid var(--surface); }
+.heat tr.on td { box-shadow: inset 0 2px 0 var(--ink), inset 0 -2px 0 var(--ink); }
+.teambtn { border: 0; background: none; padding: 0; font-weight: 700; cursor: pointer; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.detail h4 { font: 700 1.15rem/1.2 var(--cond); margin: 18px 0 6px; }
+.badge { display: inline-block; font-size: .8rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); }
+.badge.out { background: var(--warn); border-color: var(--warn); color: var(--surface); }
+.badge.doubt { border-color: var(--warn); color: var(--warn); }
+.badge.q { border-color: color-mix(in srgb, var(--soft) 60%, transparent); background: color-mix(in srgb, var(--soft) 14%, var(--surface)); }
+.badge.old { color: var(--muted); }
+.inj-team { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.inj-team:first-child { border-top: 2px solid var(--ink); }
+.inj-team h3 { font: 700 1.4rem/1.1 var(--cond); margin: 0; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.inj-team h3 span { font: 400 .9rem/1.3 var(--body); color: var(--muted); }
+.inj-team ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.inj-team li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.inj-team .also { color: var(--muted); font-size: .88rem; margin: 8px 0 0; }
 @media (max-width: 860px) {
-  .layout-dvp { grid-template-columns: 1fr; }
+  .layout-dvp, .layout-teams { grid-template-columns: 1fr; }
   .detail { position: static; }
 }
 @media (max-width: 560px) {
@@ -181,7 +198,10 @@ tr.none td { color: var(--muted); }
     </div>
     <nav class="tabs" role="tablist" aria-label="Sections">
       <button role="tab" id="tab-picks" aria-controls="picks" data-tab="picks">This week's top 10</button>
+      <button role="tab" id="tab-waivers" aria-controls="waivers" data-tab="waivers">Waiver wire</button>
       <button role="tab" id="tab-dvp" aria-controls="dvp" data-tab="dvp">Defense vs position</button>
+      <button role="tab" id="tab-teams" aria-controls="teams" data-tab="teams">Team offense</button>
+      <button role="tab" id="tab-injuries" aria-controls="injuries" data-tab="injuries">Injuries</button>
       <button role="tab" id="tab-log" aria-controls="log" data-tab="log">Game log</button>
     </nav>
   </div>
@@ -207,8 +227,9 @@ tr.none td { color: var(--muted); }
           <li><strong>Matchup:</strong> how many points this week's opponent has allowed to the position compared with the league average. Defenses with only a few games are pulled toward average. Capped at ±20%.</li>
           <li><strong>Team total:</strong> the team's Vegas implied points for the game (from the over/under and spread). Higher-scoring games mean more fantasy points. Capped at ±15%.</li>
           <li><strong>Usage:</strong> whether the player's targets and carries (attempts and carries for QBs) over the last three games are up or down versus his season average. Capped at ±10%.</li>
+        <li><strong>Injuries:</strong> players listed Out, Doubtful, or on IR are left off. Questionable players stay on with a warning. If a teammate ahead of a player on the depth chart is out, his projection gets a 10% bump.</li>
         </ul>
-        <p>Not included: injury reports, depth-chart changes, weather, or trades after the last update. Players on bye are left out, and players who haven't played in three weeks are dropped. Check injury news before you set a lineup.</p>
+        <p>Not included: weather, coaching changes, or news after the last update. Players on bye are left out, and players who haven't played in three weeks are dropped. Check the latest news before you set a lineup.</p>
       </details>
     </section>
 
@@ -231,6 +252,60 @@ tr.none td { color: var(--muted); }
         <div class="scroll"><table class="heat" id="dvp-table"></table></div>
         <div class="detail" id="dvp-detail" aria-live="polite"></div>
       </div>
+    </section>
+
+    <!-- Waiver wire -->
+    <section id="waivers" role="tabpanel" aria-labelledby="tab-waivers" hidden>
+      <h2>Waiver wire</h2>
+      <p class="lede" id="wv-lede"></p>
+      <div class="toolbar">
+        <div class="field-ctl"><span id="wv-size-label">League size</span>
+          <div class="seg" role="group" aria-labelledby="wv-size-label" id="wv-size">
+            <button data-size="8">8 teams</button><button data-size="10">10 teams</button><button data-size="12">12 teams</button></div></div>
+        <div class="field-ctl"><span id="wv-pos-label">Position</span>
+          <div class="seg" role="group" aria-labelledby="wv-pos-label" id="wv-pos">
+            <button data-pos="">All</button><button data-pos="QB">QB</button><button data-pos="RB">RB</button><button data-pos="WR">WR</button><button data-pos="TE">TE</button></div></div>
+      </div>
+      <ol class="depth" id="wv-list"></ol>
+      <details class="method">
+        <summary>How waiver picks are made</summary>
+        <p>First, the page works out who is probably already rostered. In a 12-team league with 16-man rosters, teams usually hold about 19 QBs, 55 RBs, 62 WRs, and 19 TEs in total; smaller leagues hold proportionally fewer, so more good players are free. The most-rostered players at each position are treated as taken, using ESPN's % rostered when it's available and an estimate from last season's and this season's scoring when it isn't.</p>
+        <p>Everyone left is ranked by expected points per week: 45% next week's projection, 35% his last three games, and 20% his longer-term form. In the All view, players are ranked by how much they beat a typical starter at their position in your league size, so a QB isn't ranked higher just because QBs score more. Players get a 10% boost when a teammate ahead of them on the depth chart is out. Players who are out, doubtful, on IR, or haven't played in three weeks are skipped.</p>
+      </details>
+    </section>
+
+    <!-- Team offense -->
+    <section id="teams" role="tabpanel" aria-labelledby="tab-teams" hidden>
+      <h2>Team offense</h2>
+      <p class="lede">Real points and fantasy production per game for every offense. Orange is above the league average, blue is below. Select a team to see its weekly results and who gets the ball.</p>
+      <div class="toolbar">
+        <label class="field-ctl">Season <select id="tm-season"></select></label>
+        <label class="field-ctl">From week <select id="tm-from"></select></label>
+        <label class="field-ctl">To week <select id="tm-to"></select></label>
+      </div>
+      <div class="legend"><span>Below average</span><span class="ramp" aria-hidden="true"></span><span>Above average</span></div>
+      <div class="layout-teams">
+        <div class="scroll"><table class="heat" id="tm-table"></table></div>
+        <div class="detail" id="tm-detail" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- Injuries -->
+    <section id="injuries" role="tabpanel" aria-labelledby="tab-injuries" hidden>
+      <h2>Injuries</h2>
+      <p class="lede" id="inj-lede"></p>
+      <div class="toolbar">
+        <div class="field-ctl"><span id="inj-view-label">View</span>
+          <div class="seg" role="group" aria-labelledby="inj-view-label" id="inj-view">
+            <button data-view="players">Players</button><button data-view="teams">By team</button></div></div>
+        <label class="field-ctl">Team <select id="inj-team"></select></label>
+        <label class="field-ctl">Position <select id="inj-pos">
+          <option value="fantasy">QB, RB, WR, TE</option><option value="all">All positions</option>
+          <option>QB</option><option>RB</option><option>WR</option><option>TE</option></select></label>
+        <label class="field-ctl">Status <select id="inj-status">
+          <option value="">Any status</option><option>Out</option><option>Doubtful</option><option>Questionable</option><option value="IR">IR, PUP, or suspended</option></select></label>
+      </div>
+      <div id="inj-body"></div>
     </section>
 
     <!-- Game log -->
@@ -281,6 +356,9 @@ const state = {
   tab: "picks",
   pickPos: "RB", pickCount: 10,
   dvp: { view: store("dvpView") || "pos", season: null, from: 1, to: 18, sortCol: null, sortDir: -1, sel: null },
+  wv: { size: store("wvSize") || "12", pos: "" },
+  tm: { season: null, from: 1, to: 18, sort: "pf", dir: -1, sel: null },
+  inj: { view: "players", team: "", pos: "fantasy", status: "" },
   log: { season: null, pos: "", role: "", opp: "", team: "", ha: "", from: 1, to: 18, min: "", q: "", sort: "pts", dir: -1, limit: 100 },
 };
 
@@ -324,9 +402,10 @@ function init(data) {
   const seasons = m.seasons.slice().reverse();
   state.dvp.season = state.log.season = m.season;
   if (!seasons.includes(m.season)) state.dvp.season = state.log.season = seasons[0];
-  for (const id of ["dvp-season", "log-season"]) $(id).innerHTML = seasons.map((s) => `<option>${s}</option>`).join("");
-  $("dvp-season").value = $("log-season").value = state.dvp.season;
-  setWeekRange("dvp"); setWeekRange("log");
+  state.tm.season = state.dvp.season;
+  for (const id of ["dvp-season", "log-season", "tm-season"]) $(id).innerHTML = seasons.map((s) => `<option>${s}</option>`).join("");
+  $("dvp-season").value = $("log-season").value = $("tm-season").value = state.dvp.season;
+  setWeekRange("dvp"); setWeekRange("log"); setWeekRange("tm");
   fillTeams();
   wire();
   renderAll();
@@ -401,6 +480,28 @@ function wire() {
   });
   $("pick-more").addEventListener("click", () => { state.pickCount = state.pickCount === 10 ? 25 : 10; renderPicks(); });
 
+  $("wv-size").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    state.wv.size = b.dataset.size; store("wvSize", state.wv.size); renderWaivers();
+  });
+  $("wv-pos").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    state.wv.pos = b.dataset.pos; renderWaivers();
+  });
+  const T = state.tm;
+  $("tm-season").addEventListener("change", (e) => { T.season = +e.target.value; setWeekRange("tm"); renderTeams(); });
+  $("tm-from").addEventListener("change", (e) => { T.from = +e.target.value; if (T.to < T.from) { T.to = T.from; $("tm-to").value = T.to; } renderTeams(); });
+  $("tm-to").addEventListener("change", (e) => { T.to = +e.target.value; if (T.from > T.to) { T.from = T.to; $("tm-from").value = T.from; } renderTeams(); });
+  const I = state.inj;
+  $("inj-view").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    I.view = b.dataset.view; renderInjuries();
+  });
+  const injTeams = [...new Set((D.injuries?.list || []).map((x) => x.tm).concat((D.upcoming || []).map((x) => x.tm)))].filter(Boolean).sort();
+  $("inj-team").innerHTML = `<option value="">All teams</option>` + injTeams.map((t) => `<option>${esc(t)}</option>`).join("");
+  for (const [id, key] of [["inj-team", "team"], ["inj-pos", "pos"], ["inj-status", "status"]]) {
+    $(id).addEventListener("change", (e) => { I[key] = e.target.value; renderInjuries(); });
+  }
   $("dvp-view").addEventListener("click", (e) => {
     const b = e.target.closest("button"); if (!b) return;
     const S = state.dvp;
@@ -443,6 +544,7 @@ function showTab(tab) {
   document.querySelectorAll("nav.tabs button").forEach((b) => {
     const on = b.dataset.tab === tab;
     b.setAttribute("aria-selected", on); b.tabIndex = on ? 0 : -1;
+    if (on && b.scrollIntoView) b.scrollIntoView({ block: "nearest", inline: "nearest" });
   });
   document.querySelectorAll("main section").forEach((s) => (s.hidden = s.id !== tab));
 }
@@ -450,7 +552,7 @@ function showTab(tab) {
 function renderAll() {
   document.querySelectorAll("#fmt-seg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.fmt === state.fmt));
   showTab(state.tab);
-  renderPicks(); renderDvp(); renderLog();
+  renderPicks(); renderWaivers(); renderDvp(); renderTeams(); renderInjuries(); renderLog();
 }
 
 /* ---------- Helpers ---------- */
@@ -505,6 +607,8 @@ function renderPicks() {
     if (e.use >= 1.03) chips.push(`<span class="chip good" title="Targets and carries over the last 3 games vs season average">Usage rising</span>`);
     if (e.use <= 0.97) chips.push(`<span class="chip bad" title="Targets and carries over the last 3 games vs season average">Usage falling</span>`);
     if (e.gp < 3) chips.push(`<span class="chip warn">Only ${e.gp} game${e.gp === 1 ? "" : "s"} this season</span>`);
+    if (e.status) chips.push(`<span class="chip warn">${esc(e.status)}</span>`);
+    if (e.mate_out) chips.push(`<span class="chip good" title="A teammate ahead of him on the depth chart is out">${esc(e.mate_out)} is out</span>`);
     if (e.missed) chips.push(`<span class="chip warn">Missed last game, check injury news</span>`);
     if (e.played) chips.push(`<span class="chip">Already played: ${e.actual != null ? f1(e.actual) + " pts" : "no stats"}</span>`);
     return `<li>
@@ -617,6 +721,177 @@ function renderDvpDetail() {
     for (const id of ["log-team", "log-ha", "log-q", "log-min"]) $(id).value = "";
     renderLog(); showTab("log"); $("tab-log").focus();
   });
+}
+
+/* ---------- Waiver wire ---------- */
+function renderWaivers() {
+  const W = D.waivers || {}, S = state.wv;
+  document.querySelectorAll("#wv-size button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.size === S.size));
+  document.querySelectorAll("#wv-pos button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.pos === S.pos));
+  const list = $("wv-list");
+  if (W.status !== "ok") {
+    $("wv-lede").textContent = "";
+    list.innerHTML = `<li class="empty" style="display:block">Waiver picks start once this season's first week of games has been played.</li>`;
+    return;
+  }
+  const bySize = (W.sizes[S.size] || {})[state.fmt] || {};
+  const items = S.pos ? (bySize[S.pos] || []) : POS.flatMap((p) => bySize[p] || []).sort((a, b) => b.vor - a.vor).slice(0, 15);
+  const wk = D.projections && D.projections.week;
+  $("wv-lede").textContent = `Players likely to be available in a ${S.size}-team league, ranked by expected ${FMT_NAME[state.fmt]} points per week${wk ? `, weighted toward week ${wk}` : ""}. `
+    + (W.source === "espn" ? "Availability is based on ESPN's % rostered across all leagues. " : "Your league's rosters aren't visible here, so availability is estimated from how valuable each player has been. ")
+    + "Confirm a player is free in your league before you put in a claim.";
+  const key = (e) => (S.pos ? e.score : e.vor);
+  const hi = items.length ? key(items[0]) : 1, lo = items.length ? key(items[items.length - 1]) : 0;
+  const barW = (e) => (hi === lo ? 100 : 15 + 85 * (key(e) - lo) / (hi - lo));
+  list.innerHTML = items.map((e, i) => {
+    const chips = [`<span class="chip" title="Average fantasy points over his last 3 games">Last 3 games: ${f1(e.last3)} avg</span>`];
+    if (e.bye) chips.push(`<span class="chip warn">Bye in week ${wk}</span>`);
+    else if (e.proj != null) chips.push(`<span class="chip">Week ${wk}: ${f1(e.proj)} proj. ${e.home ? "vs" : "at"} ${esc(e.opp)}</span>`);
+    if (e.mate_out) chips.push(`<span class="chip good">${esc(e.mate_out)} is out; he's next up</span>`);
+    if (e.use >= 1.03) chips.push(`<span class="chip good" title="Targets and carries over the last 3 games vs season average">Usage rising</span>`);
+    if (e.use <= 0.97) chips.push(`<span class="chip bad" title="Targets and carries over the last 3 games vs season average">Usage falling</span>`);
+    if (e.status) chips.push(`<span class="chip warn">${esc(e.status)}</span>`);
+    if (e.own != null) chips.push(`<span class="chip">Rostered in ${Math.round(e.own)}% of ESPN leagues</span>`);
+    const role = e.depth ? `${e.pos}${e.depth} for ${esc(e.tm)}` : `${e.pos}, ${esc(e.tm)}`;
+    return `<li>
+      <span class="rank">${i + 1}</span>
+      <div class="who"><div class="name">${esc(e.name)}</div><div class="game">${role}</div></div>
+      <div class="pts"><strong>${f1(e.score)}</strong><span>exp. pts/wk</span></div>
+      <div class="bar" aria-hidden="true"><i style="width:${barW(e)}%"></i></div>
+      <div class="chips">${chips.join("")}</div>
+    </li>`;
+  }).join("") || `<li class="empty" style="display:block">No ${S.pos || "players"} worth adding turned up for this league size.</li>`;
+}
+
+/* ---------- Team offense ---------- */
+const TEAM_COLS = [["pf", "Pts"], ["fant", "Fantasy"], ["QB", "QB"], ["RB", "RB"], ["WR", "WR"], ["TE", "TE"], ["pyd", "Pass yds"], ["ryd", "Rush yds"], ["td", "TDs"]];
+function computeTeams(season, from, to, fmt) {
+  const sc = (D.team_scores || []).filter((g) => g[0] === season && g[1] >= from && g[1] <= to);
+  const rows = ROWS.filter((r) => r.s === season && r.wk >= from && r.wk <= to);
+  const T = {};
+  const get = (tm) => (T[tm] ??= { tm, g: 0, w: 0, l: 0, t: 0, pf: 0, fant: 0, QB: 0, RB: 0, WR: 0, TE: 0, pyd: 0, ryd: 0, td: 0, weeks: new Set() });
+  for (const [, , tm, , pf, pa] of sc) { const x = get(tm); x.g++; x.pf += pf; if (pf > pa) x.w++; else if (pf < pa) x.l++; else x.t++; }
+  for (const r of rows) { const x = get(r.tm); x.weeks.add(r.wk); x.fant += r[fmt]; x[r.pos] += r[fmt]; x.pyd += r.pyd; x.ryd += r.ryd; x.td += r.rtd + r.retd; }
+  const list = Object.values(T).map((x) => {
+    const g = x.g || x.weeks.size || 1, per = {};
+    for (const [k] of TEAM_COLS) per[k] = k === "pf" ? (x.g ? x.pf / x.g : null) : x[k] / g;
+    return { ...x, per };
+  });
+  const league = {};
+  for (const [k] of TEAM_COLS) { const v = list.map((x) => x.per[k]).filter((v) => v != null); league[k] = v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0; }
+  return { list, league, sc, rows };
+}
+
+function renderTeams() {
+  const S = state.tm, fmt = state.fmt;
+  const { list, league, sc, rows } = computeTeams(+S.season, S.from, S.to, fmt);
+  const sorted = list.slice().sort((a, b) => S.sort === "tm" ? a.tm.localeCompare(b.tm) * S.dir * -1 : S.dir * ((a.per[S.sort] ?? -1) - (b.per[S.sort] ?? -1)));
+  const th = (k, label) => `<th class="num"><button data-sort="${k}" data-active="${S.sort === k}">${label}${S.sort === k ? (S.dir < 0 ? " ▼" : " ▲") : ""}</button></th>`;
+  const head = `<thead><tr><th><button data-sort="tm" data-active="${S.sort === "tm"}">Team</button></th><th class="num">Record</th>${TEAM_COLS.map(([k, l]) => th(k, l)).join("")}</tr></thead>`;
+  const body = sorted.map((x) => `<tr class="${S.sel === x.tm ? "on" : ""}"><td><button class="teambtn" data-tm="${esc(x.tm)}">${esc(x.tm)}</button></td>
+    <td class="num">${x.g ? `${x.w}-${x.l}${x.t ? "-" + x.t : ""}` : ""}</td>
+    ${TEAM_COLS.map(([k]) => { const v = x.per[k]; if (v == null) return `<td></td>`;
+      const rel = league[k] ? v / league[k] - 1 : 0;
+      return `<td class="hv" style="background:${heatColor(rel)}">${k === "pyd" || k === "ryd" ? Math.round(v) : f1(v)}</td>`; }).join("")}</tr>`).join("");
+  const table = $("tm-table");
+  table.innerHTML = list.length ? head + `<tbody>${body}</tbody>` : `<tbody><tr><td class="empty">No games in this range.</td></tr></tbody>`;
+  table.querySelectorAll("th button").forEach((b) => b.addEventListener("click", () => {
+    const k = b.dataset.sort; if (S.sort === k) S.dir *= -1; else { S.sort = k; S.dir = -1; } renderTeams();
+  }));
+  table.querySelectorAll(".teambtn").forEach((b) => b.addEventListener("click", () => { S.sel = b.dataset.tm; renderTeams(); }));
+
+  const el = $("tm-detail");
+  const x = list.find((t) => t.tm === S.sel);
+  if (!x) { el.innerHTML = `<h3>Pick a team</h3><p class="sum">Select a team name to see its scores week by week and how its targets and carries are split.</p>`; return; }
+  const next = (D.upcoming || []).find((u) => u.tm === x.tm);
+  const nextTxt = next && D.projections && D.projections.week && +S.season === D.meta.season
+    ? ` Week ${D.projections.week}: ${next.home ? "vs" : "at"} ${esc(next.opp)}${next.imp != null ? `, implied ${f1(next.imp)} points` : ""}.` : "";
+  const tr = rows.filter((r) => r.tm === x.tm);
+  const weeks = [...new Set(tr.map((r) => r.wk).concat(sc.filter((g) => g[2] === x.tm).map((g) => g[1])))].sort((a, b) => a - b);
+  const wkRows = weeks.map((w) => {
+    const g = sc.find((s) => s[2] === x.tm && s[1] === w), rr = tr.filter((r) => r.wk === w);
+    const res = g ? `${g[4] > g[5] ? "W" : g[4] < g[5] ? "L" : "T"} ${g[4]}–${g[5]}` : "";
+    const opp = g ? g[3] : (rr[0] && rr[0].opp) || "";
+    return `<tr><td class="num">${w}</td><td>${esc(opp)}</td><td>${res}</td><td class="num">${f1(rr.reduce((a, r) => a + r[fmt], 0))}</td><td class="num">${rr.reduce((a, r) => a + r.pyd, 0)}</td><td class="num">${rr.reduce((a, r) => a + r.ryd, 0)}</td></tr>`;
+  }).join("");
+  const share = (field, yds) => {
+    const by = new Map();
+    for (const r of tr) { const o = by.get(r.id) || { name: r.name, pos: r.pos, n: 0, y: 0 }; o.n += r[field]; o.y += r[yds]; by.set(r.id, o); }
+    const tot = [...by.values()].reduce((a, o) => a + o.n, 0) || 1;
+    return [...by.values()].filter((o) => o.n > 0).sort((a, b) => b.n - a.n).slice(0, 8)
+      .map((o) => `<tr><td>${esc(o.name)} <span class="statline">${o.pos}</span></td><td class="num">${o.n}</td><td class="num">${Math.round((o.n / tot) * 100)}%</td><td class="num">${o.y}</td></tr>`).join("");
+  };
+  el.innerHTML = `<h3>${esc(x.tm)} offense</h3>
+    <p class="sum">${x.g ? `${x.w}-${x.l}${x.t ? "-" + x.t : ""}, ` : ""}${x.per.pf != null ? f1(x.per.pf) + " points per game" : ""}${x.per.pf != null ? ", " : ""}${f1(x.per.fant)} ${FMT_NAME[fmt]} fantasy points per game.${nextTxt}</p>
+    <h4>Week by week</h4>
+    <div class="scroll"><table><thead><tr><th class="num">Wk</th><th>Opp</th><th>Result</th><th class="num">Fantasy</th><th class="num">Pass yds</th><th class="num">Rush yds</th></tr></thead><tbody>${wkRows}</tbody></table></div>
+    <h4>Target share</h4>
+    <div class="scroll"><table><thead><tr><th>Player</th><th class="num">Tgt</th><th class="num">Share</th><th class="num">Rec yds</th></tr></thead><tbody>${share("tgt", "reyd")}</tbody></table></div>
+    <h4>Carry share</h4>
+    <div class="scroll"><table><thead><tr><th>Player</th><th class="num">Car</th><th class="num">Share</th><th class="num">Rush yds</th></tr></thead><tbody>${share("car", "ryd")}</tbody></table></div>`;
+}
+
+/* ---------- Injuries ---------- */
+const OUTSET = new Set(["Out", "Doubtful", "IR", "Suspended", "PUP"]);
+const SEVERITY = { IR: 0, Suspended: 0, PUP: 0, Out: 1, Doubtful: 2, Questionable: 3 };
+function badge(status, old) {
+  if (!status) return "";
+  const cls = old ? "old" : ["Out", "IR", "Suspended", "PUP"].includes(status) ? "out" : status === "Doubtful" ? "doubt" : "q";
+  return `<span class="badge ${cls}">${esc(status)}</span>`;
+}
+function seasonPpg(fmt) {
+  const m = new Map();
+  for (const r of ROWS) if (r.s === D.meta.season) { const o = m.get(r.p) || { t: 0, g: 0 }; o.t += r[fmt]; o.g++; m.set(r.p, o); }
+  return m;
+}
+function renderInjuries() {
+  const I = D.injuries || { list: [] }, S = state.inj, fmt = state.fmt;
+  document.querySelectorAll("#inj-view button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.view === S.view));
+  const espn = D.meta.espn;
+  $("inj-lede").textContent = I.current
+    ? `Official NFL injury report for week ${I.week}${espn ? ", plus ESPN's IR and suspension designations" : ""}. Teams update it Wednesday through Friday, so check again before kickoff.`
+    : I.week
+      ? `This week's official report isn't out yet (teams release it Wednesday through Friday). ${espn ? "Statuses below are ESPN's current designations; " : ""}week ${I.week}'s report is shown in gray for reference.`
+      : "No injury report is available yet this season.";
+  const statusOf = (e) => e.status || null;
+  const ppg = seasonPpg(fmt);
+  const byP = new Map(I.list.filter((e) => e.p != null).map((e) => [e.p, statusOf(e)]));
+  let list = I.list.filter((e) => (!S.team || e.tm === S.team)
+    && (S.pos === "all" || (S.pos === "fantasy" ? POS.includes(e.pos) : e.pos === S.pos))
+    && (!S.status || (S.status === "IR" ? ["IR", "PUP", "Suspended"].includes(statusOf(e)) : statusOf(e) === S.status)));
+  const val = (e) => { const o = e.p != null && ppg.get(e.p); return o ? o.t / o.g : -1; };
+  const nextUp = (e) => {
+    if (e.p == null || !D.depth || !OUTSET.has(statusOf(e))) return null;
+    const chart = (D.depth[e.tm] || {})[e.pos] || [], i = chart.indexOf(e.p);
+    if (i < 0) return null;
+    const q = chart.slice(i + 1).find((x) => !OUTSET.has(byP.get(x)));
+    return q != null ? D.players[q][1] : null;
+  };
+  const statusCell = (e) => statusOf(e) ? badge(statusOf(e)) : (e.report ? badge(`Wk ${I.week}: ${e.report}`, true) : "");
+  const body = $("inj-body");
+  if (!list.length) { body.innerHTML = `<p class="empty">No injuries match these filters.</p>`; return; }
+  if (S.view === "players") {
+    list.sort((a, b) => (val(b) - val(a)) || ((SEVERITY[statusOf(a)] ?? 9) - (SEVERITY[statusOf(b)] ?? 9)));
+    body.innerHTML = `<div class="scroll"><table><thead><tr><th>Player</th><th>Pos</th><th>Team</th><th>Status</th><th>Injury</th><th>Practice</th><th class="num">Pts/G</th><th>Next up</th></tr></thead><tbody>
+      ${list.map((e) => { const v = val(e), role = e.p != null ? LATEST_ROLE.get(D.players[e.p][0]) : null, nu = nextUp(e);
+        return `<tr><td>${esc(e.name)}${role ? ` <span class="statline">${role}</span>` : ""}</td><td>${esc(e.pos || "")}</td><td>${esc(e.tm || "")}</td>
+        <td>${statusCell(e)}</td><td>${esc(e.injury || "")}</td><td class="statline">${esc(e.practice || "")}</td>
+        <td class="num">${v >= 0 ? f1(v) : ""}</td><td>${nu ? esc(nu) : ""}</td></tr>`; }).join("")}
+      </tbody></table></div>`;
+    return;
+  }
+  const teams = [...new Set(list.map((e) => e.tm))].sort();
+  body.innerHTML = teams.map((tm) => {
+    const tl = list.filter((e) => e.tm === tm);
+    const counts = ["Out", "Doubtful", "Questionable", "IR"].map((st) => [st, tl.filter((e) => st === "IR" ? ["IR", "PUP", "Suspended"].includes(statusOf(e)) : statusOf(e) === st).length]).filter(([, n]) => n);
+    const fant = tl.filter((e) => POS.includes(e.pos)).sort((a, b) => val(b) - val(a));
+    const other = tl.filter((e) => !POS.includes(e.pos));
+    return `<div class="inj-team"><h3>${esc(tm)} <span>${counts.map(([st, n]) => `${n} ${st === "IR" ? "on IR/PUP/suspended" : st.toLowerCase()}`).join(", ") || "No designations yet"}</span></h3>
+      ${fant.length ? `<ul>${fant.map((e) => { const nu = nextUp(e), v = val(e);
+        return `<li><strong>${esc(e.name)}</strong> <span class="statline">${esc(e.pos)}${v >= 0 ? `, ${f1(v)} pts/g` : ""}</span> ${statusCell(e)} <span class="statline">${esc(e.injury || "")}</span>${nu ? ` <span class="chip good">Next up: ${esc(nu)}</span>` : ""}</li>`; }).join("")}</ul>` : ""}
+      ${other.length ? `<p class="also">Also listed: ${other.slice(0, 8).map((e) => `${esc(e.name)} (${esc(e.pos)}${statusOf(e) ? ", " + esc(statusOf(e)) : ""})`).join("; ")}${other.length > 8 ? `; and ${other.length - 8} more` : ""}</p>` : ""}
+    </div>`;
+  }).join("");
 }
 
 /* ---------- Game log ---------- */
