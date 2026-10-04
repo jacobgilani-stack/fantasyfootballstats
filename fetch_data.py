@@ -16,6 +16,7 @@ Usage:
 import argparse
 import datetime as dt
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
@@ -52,6 +53,10 @@ ESPN_TEAM = {1: "ATL", 2: "BUF", 3: "CHI", 4: "CIN", 5: "CLE", 6: "DAL", 7: "DEN
 ESPN_STATUS = {"QUESTIONABLE": "Questionable", "DOUBTFUL": "Doubtful", "OUT": "Out", "INJURY_RESERVE": "IR",
                "SUSPENSION": "Suspended", "DAY_TO_DAY": "Questionable", "PUP": "PUP"}
 OUT_STATUSES = {"Out", "Doubtful", "IR", "Suspended", "PUP"}
+
+# ---- History (team of the week / season tabs) ----
+HISTORY_FROM = 2015
+HIST_PER_POS = 10   # top players kept per position per week (per scoring format)
 
 # ---- Waiver wire settings ----
 LEAGUE_SIZES = [8, 10, 12]
@@ -565,6 +570,51 @@ def build_waivers(evals, cur, prev, espn_map, last_done, next_week):
 
 
 # ----------------------------------------------------------------------------
+# Assemble data.json / history.json
+# ----------------------------------------------------------------------------
+def encode_rows(df, pindex):
+    rows = []
+    for r in df.itertuples(index=False):
+        home = None if pd.isna(r.home) else int(bool(r.home))
+        rows.append([int(r.s), pindex[r.id], int(r.wk), r.tm, r.opp, home,
+                     round(float(r.std), 1), round(float(r.half), 2), round(float(r.ppr), 1),
+                     int(r.pyd), int(r.ptd), int(r.int), int(r.car), int(r.ryd), int(r.rtd),
+                     int(r.tgt), int(r.rec), int(r.reyd), int(r.retd)])
+    return rows
+
+
+def season_frame(stats_raw, sched_raw, season):
+    df = normalize_stats(stats_raw, season)
+    return attach_schedule(df, team_games(normalize_schedule(sched_raw, season)))
+
+
+def build_history(frames):
+    """Compact all-seasons file: each week's top scorers, plus every player's season totals."""
+    df = pd.concat([f for f in frames if not f.empty], ignore_index=True).sort_values(["s", "wk"])
+    keep = set()
+    for fmt in FORMATS:
+        keep.update(df.sort_values(fmt, ascending=False).groupby(["s", "wk", "pos"]).head(HIST_PER_POS).index)
+    weekly = df.loc[sorted(keep)].sort_values(["s", "wk"])
+    g = df.groupby(["s", "id"])
+    agg = g.agg(tm=("tm", "last"), g=("wk", "count"),
+                std=("std", "sum"), half=("half", "sum"), ppr=("ppr", "sum"),
+                bstd=("std", "max"), bhalf=("half", "max"), bppr=("ppr", "max")).reset_index()
+    players = df.groupby("id").last()[["name", "pos"]].reset_index()
+    pindex = {pid: i for i, pid in enumerate(players["id"])}
+    season_rows = [[int(r.s), pindex[r.id], r.tm, int(r.g), round(float(r.std), 1), round(float(r.half), 1),
+                    round(float(r.ppr), 1), round(float(r.bstd), 1), round(float(r.bhalf), 1), round(float(r.bppr), 1)]
+                   for r in agg.itertuples(index=False)]
+    return {
+        "seasons": sorted(df["s"].unique().tolist()),
+        "players": players[["id", "name", "pos"]].values.tolist(),
+        "cols": ROW_COLS,
+        "rows": encode_rows(weekly, pindex),
+        "season_cols": ["s", "p", "tm", "g", "std", "half", "ppr", "bstd", "bhalf", "bppr"],
+        "season_rows": season_rows,
+    }
+
+
+# ----------------------------------------------------------------------------
 # Assemble data.json
 # ----------------------------------------------------------------------------
 def build(cur_raw, prev_raw, sched_raw, season, inj_raw=None, espn=None, sample=False):
@@ -593,13 +643,7 @@ def build(cur_raw, prev_raw, sched_raw, season, inj_raw=None, espn=None, sample=
     waivers = build_waivers(evals, cur, prev, espn_map, last_done, next_week) if not cur.empty else \
         {"status": "no_games_yet", "sizes": LEAGUE_SIZES}
 
-    rows = []
-    for r in both.itertuples(index=False):
-        home = None if pd.isna(r.home) else int(bool(r.home))
-        rows.append([int(r.s), pindex[r.id], int(r.wk), r.tm, r.opp, home,
-                     round(float(r.std), 1), round(float(r.half), 2), round(float(r.ppr), 1),
-                     int(r.pyd), int(r.ptd), int(r.int), int(r.car), int(r.ryd), int(r.rtd),
-                     int(r.tgt), int(r.rec), int(r.reyd), int(r.retd)])
+    rows = encode_rows(both, pindex)
 
     # Team scores for the team offense tab
     team_scores = []
@@ -683,8 +727,20 @@ def main():
     if not data["rows"]:
         sys.exit("Stopped: stats downloaded but no QB/RB/WR/TE rows were found.")
 
-    with open(args.out, "w") as f:
-        json.dump(data, f, separators=(",", ":"), allow_nan=False, default=lambda o: o.item() if hasattr(o, "item") else str(o))
+    dump = lambda obj, path: json.dump(obj, open(path, "w"), separators=(",", ":"), allow_nan=False,
+                                       default=lambda o: o.item() if hasattr(o, "item") else str(o))
+    dump(data, args.out)
+
+    # History for the team of the week / season tabs (older seasons are only downloaded here)
+    frames = [season_frame(cur_raw, sched_raw, season), season_frame(prev_raw, sched_raw, season - 1)]
+    for s_ in range(HISTORY_FROM, season - 1):
+        raw = load_stats(s_)
+        if raw is not None:
+            frames.append(season_frame(raw, sched_raw, s_))
+    hist_path = os.path.join(os.path.dirname(args.out) or ".", "history.json")
+    hist = build_history(frames)
+    dump(hist, hist_path)
+    print(f"Wrote {hist_path}: seasons {hist['seasons'][0]}-{hist['seasons'][-1]}")
     m = data["meta"]
     print(f"Wrote {args.out}: {len(data['rows'])} player-games, stats through week {m['latest_stats_week']}, "
           f"projections for week {m['next_week']}, {len(data['injuries']['list'])} injury entries, "
