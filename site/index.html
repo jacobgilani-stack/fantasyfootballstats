@@ -441,6 +441,7 @@ function init(data) {
   state.totw.season = state.tots.season = state.dvp.season;
   for (const id of ["totw-season", "tots-season"]) { $(id).innerHTML = seasons.map((s) => `<option>${s}</option>`).join(""); $(id).value = state.dvp.season; }
   fillTotwWeeks(); fillTotsMin();
+  loadHistory();
   fillTeams();
   wire();
   renderAll();
@@ -934,6 +935,41 @@ function renderInjuries() {
 }
 
 /* ---------- Team of the week / season ---------- */
+// history.json holds every season since 2015 (each week's top scorers + season totals).
+// The two most recent seasons come from data.json, which has every game.
+let HIST = null;
+async function loadHistory() {
+  try {
+    const res = await fetch("history.json", { cache: "no-cache" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const h = await res.json();
+    const rows = h.rows.map((r) => {
+      const o = {}; h.cols.forEach((k, i) => (o[k] = r[i]));
+      const p = h.players[o.p]; o.id = p[0]; o.name = p[1]; o.pos = p[2]; return o;
+    });
+    const seasonRows = h.season_rows.map((r) => {
+      const o = {}; h.season_cols.forEach((k, i) => (o[k] = r[i]));
+      const p = h.players[o.p]; o.id = p[0]; o.name = p[1]; o.pos = p[2]; return o;
+    });
+    HIST = { seasons: h.seasons, rows, seasonRows };
+    const all = [...new Set(h.seasons.concat(D.meta.seasons))].sort((a, b) => b - a);
+    for (const id of ["totw-season", "tots-season"]) {
+      const cur = $(id).value;
+      $(id).innerHTML = all.map((x) => `<option>${x}</option>`).join("");
+      $(id).value = cur;
+    }
+  } catch (e) {
+    HIST = false; // page still works with the seasons in data.json
+  }
+}
+const inMain = (season) => D.meta.seasons.includes(season);
+function lineupRows(season) {
+  return inMain(season) ? ROWS.filter((r) => r.s === season) : HIST ? HIST.rows.filter((r) => r.s === season) : [];
+}
+function lineupWeeks(season) {
+  return [...new Set(lineupRows(season).map((r) => r.wk))].sort((a, b) => a - b);
+}
+
 const SLOTS = [["QB", ["QB"]], ["RB", ["RB"]], ["RB", ["RB"]], ["WR", ["WR"]], ["WR", ["WR"]], ["TE", ["TE"]], ["FLEX", ["RB", "WR", "TE"]]];
 function bestLineup(cands) {
   // cands sorted best first; fill fixed slots first, then FLEX takes the best player left
@@ -956,7 +992,7 @@ function lineupHtml(lineup, valFn, valLabel, detailFn) {
 }
 
 function fillTotwWeeks() {
-  const S = state.totw, wks = weeksIn(+S.season);
+  const S = state.totw, wks = lineupWeeks(+S.season);
   const m = D.meta;
   const done = +S.season === m.season && m.last_completed_week ? wks.filter((w) => w <= m.last_completed_week) : wks;
   $("totw-week").innerHTML = wks.map((w) => `<option value="${w}">Week ${w}${done.includes(w) ? "" : " (in progress)"}</option>`).join("");
@@ -965,7 +1001,7 @@ function fillTotwWeeks() {
 }
 function renderTotw() {
   const S = state.totw, fmt = state.fmt, body = $("totw-body");
-  const rows = ROWS.filter((r) => r.s === +S.season && r.wk === S.week).map((r) => ({ ...r, key: r.id + "|" + r.wk })).sort((a, b) => b[fmt] - a[fmt]);
+  const rows = lineupRows(+S.season).filter((r) => r.wk === S.week).map((r) => ({ ...r, key: r.id + "|" + r.wk })).sort((a, b) => b[fmt] - a[fmt]);
   if (!rows.length) { body.innerHTML = `<p class="empty">No games for this week yet.</p>`; return; }
   const { lineup, rest } = bestLineup(rows);
   const total = lineup.reduce((a, l) => a + (l.c ? l.c[fmt] : 0), 0);
@@ -977,7 +1013,7 @@ function renderTotw() {
 }
 
 function fillTotsMin() {
-  const S = state.tots, n = weeksIn(+S.season).length || 1;
+  const S = state.tots, n = lineupWeeks(+S.season).length || 1;
   const opts = [...new Set([1, 2, 3, 4, 5, 6, 8, 10, 12, 14, 16].filter((x) => x <= n).concat(n))].sort((a, b) => a - b);
   $("tots-min").innerHTML = opts.map((x) => `<option value="${x}">${x} game${x === 1 ? "" : "s"}</option>`).join("");
   const def = Math.max(1, Math.ceil(n / 2));
@@ -987,7 +1023,11 @@ function fillTotsMin() {
 function renderTots() {
   const S = state.tots, fmt = state.fmt, body = $("tots-body");
   const agg = new Map();
-  for (const r of ROWS) {
+  if (!inMain(+S.season) && HIST) {
+    for (const r of HIST.seasonRows) if (r.s === +S.season)
+      agg.set(r.id, { key: r.id, id: r.id, name: r.name, pos: r.pos, tm: r.tm, g: r.g, tot: r[fmt], best: r["b" + fmt] });
+  }
+  for (const r of inMain(+S.season) ? ROWS : []) {
     if (r.s !== +S.season) continue;
     const o = agg.get(r.id) || { key: r.id, id: r.id, name: r.name, pos: r.pos, tm: r.tm, g: 0, tot: 0, best: 0, lastWk: 0 };
     o.g++; o.tot += r[fmt]; o.best = Math.max(o.best, r[fmt]);
