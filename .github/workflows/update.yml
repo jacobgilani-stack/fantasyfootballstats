@@ -2,10 +2,10 @@ name: Update stats and publish site
 
 on:
   schedule:
-    - cron: "0 13 * * 2"   # Tuesday 9am ET: final stats after Monday night, new projections and waiver picks
-    - cron: "0 13 * * 4"   # Thursday 9am ET: first injury reports of the week, before Thursday night
-    - cron: "0 13 * * 6"   # Saturday 9am ET: final injury reports (released Friday), updated lines
-    - cron: "0 14 * * 0"   # Sunday 10am ET: last refresh of injury statuses before kickoff
+    # GitHub cron is in UTC. These times are Eastern Daylight Time; after DST ends (Nov 1) each runs 1 hour earlier in ET.
+    - cron: "7 13 * * *"   # Every day ~9am ET: final stats, projections, injury news
+    - cron: "40 15 * * 0"  # Sunday ~11:40am ET: inactives for 1pm games
+    - cron: "40 19 * * 0"  # Sunday ~3:40pm ET: inactives for late games (and before SNF)
   workflow_dispatch:        # lets you run it any time from the Actions tab
   push:
     branches: [main]
